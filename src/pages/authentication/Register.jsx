@@ -2,7 +2,14 @@ import React, { useState } from "react";
 import gLogo from "../../assets/images/icons/g-icon.webp";
 import logo from "../../assets/images/habituo-logo.svg";
 import { signInWithPopup, createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+  writeBatch,
+  collection,
+} from "firebase/firestore";
 import { auth, googleProvider, db } from "../../hooks/firebase";
 import { useNavigate } from "react-router-dom";
 import {
@@ -90,23 +97,53 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const createUserDocument = async (userId, name, email) => {
+    await setDoc(doc(db, "users", userId), {
+      name,
+      email,
+      registeredAt: serverTimestamp(),
+    });
+  };
+
+  const createDefaultAreas = async (userId) => {
+    const batch = writeBatch(db);
+    const areasRef = collection(db, "users", userId, "areas");
+
+    const defaultAreas = [
+      { name: "Mañanas", icon: "LuSun" },
+      { name: "Tardes", icon: "LuCloudSun" },
+      { name: "Noches", icon: "LuMoon" },
+    ];
+  
+    defaultAreas.forEach((area) => {
+      const areaDoc = doc(areasRef, area.name);
+      batch.set(areaDoc, { 
+        name: area.name, 
+        icon: area.icon, 
+        registeredAt: serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+  };
+
   const registerWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const userId = result.user.uid;
-
       const userDoc = doc(db, "users", userId);
       const userSnapshot = await getDoc(userDoc);
 
       if (!userSnapshot.exists()) {
-        await setDoc(userDoc, {
-          name: result.user.displayName || "Usuario sin nombre",
-          email: result.user.email,
-          areas: {},
-        });
+        await createUserDocument(
+          userId,
+          result.user.displayName || "Usuario",
+          result.user.email
+        );
+        await createDefaultAreas(userId);
       }
 
-      navigate("/dashboard");
+      navigate("/dashboard/all-habits");
     } catch (error) {
       throw new Error("Error al registrar con Google:", error);
     }
@@ -114,7 +151,6 @@ const Register = () => {
 
   const handleRegister = async () => {
     setIsSubmitted(true);
-
     if (!validateForm()) return;
 
     try {
@@ -123,18 +159,16 @@ const Register = () => {
         formData.email,
         formData.password
       );
-
-      const userId = result.user.uid;
-      await setDoc(doc(db, "users", userId), {
-        name: formData.name,
-        email: formData.email,
-        areas: {},
-      });
-
-      navigate("/dashboard");
+      await createUserDocument(result.user.uid, formData.name, formData.email);
+      await createDefaultAreas(result.user.uid);
+      navigate("/dashboard/all-habits");
     } catch (error) {
-      if (errors.code === "auth/email-already-in-use") {
+      if (error.code === "auth/email-already-in-use") {
         setErrors({ email: "El correo ya está en uso." });
+      } else {
+        setErrors({
+          general: "Ocurrió un error al registrar. Inténtalo de nuevo.",
+        });
       }
     }
   };
