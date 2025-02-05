@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useNavigate, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/AuthContext";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../hooks/firebase";
-import { AllHabits, LeftColumn } from "../../routes/index";
+import { AllAreas, AllHabits, AreaPage, HabitPage, LeftColumn } from "../../routes/index";
 import customTheme from "../../theme/theme";
 import { useTheme } from "../../theme/ThemeContext";
 import { ChakraProvider } from "@chakra-ui/react";
@@ -20,7 +20,15 @@ const Dashboard = () => {
   const resizer1Ref = useRef(null);
   const resizer2Ref = useRef(null);
   const location = useLocation();
-  const isAllHabitsPage = location.pathname === "/dashboard/all-habits";
+  const navigate = useNavigate();
+  const { areaId } = useParams();
+  const [content, setContent] = useState(null);
+
+  useEffect(() => {
+    if (location.pathname === "/dashboard" || location.pathname === "/dashboard/") {
+      navigate("/dashboard/all-habits");
+    }
+  }, [location, navigate]);
 
   const fetchAreas = async () => {
     if (!user) return;
@@ -44,6 +52,21 @@ const Dashboard = () => {
       setLoading(false);
     }
   };
+
+    // Función para obtener los hábitos de Firestore por área
+    const fetchHabits = async (areaId) => {
+      try {
+        const querySnapshot = await getDocs(collection(db, `users/${user.uid}/areas/${areaId}/habits`));
+        const habitsList = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        return habitsList;
+      } catch (error) {
+        console.error("Error getting habits: ", error);
+        return [];
+      }
+    };
 
   useEffect(() => {
     fetchAreas();
@@ -119,6 +142,24 @@ const Dashboard = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (areaId) {
+      setContent(<AreaPage areas={areas} fetchHabits={fetchHabits} areaId={areaId} />);
+    } else {
+      switch (true) {
+        case location.pathname === '/dashboard/all-habits':
+          setContent(<AllHabits />);
+          break;
+        case location.pathname === '/dashboard/all-areas':
+          setContent(<AllAreas />);
+          break;
+        default:
+          setContent(<AllHabits />);
+      }
+    }
+  }, [location.pathname, areaId, areas]);
+  
+
   return (
     <ChakraProvider
       theme={customTheme(
@@ -133,11 +174,11 @@ const Dashboard = () => {
         </div>
         <div ref={resizer1Ref} className="resizer" id="resizer1"></div>
         <div ref={col2Ref} className="column" id="col2">
-          {isAllHabitsPage ? <AllHabits /> : <p>Hola</p>}
+          {content}
         </div>
         <div ref={resizer2Ref} className="resizer" id="resizer2"></div>
         <div ref={col3Ref} className="column" id="col3" style={{ flex: 3 }}>
-          3
+          <HabitPage />
         </div>
       </div>
     </ChakraProvider>

@@ -167,8 +167,8 @@ const Login = () => {
                 h="2.5rem"
                 onChange={(e) => setEmail(e.target.value)}
                 borderRadius={themeOptions.borderRadius}
-                _focus={{ borderColor: themeOptions.focusColor }}
-                _focusVisible={{ borderColor: themeOptions.focusColor }}
+                _focus={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
+                _focusVisible={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
                 isInvalid={!!errors.email}
               />
               {errors.email && (
@@ -186,8 +186,8 @@ const Login = () => {
                   h="2.5rem"
                   onChange={(e) => setPassword(e.target.value)}
                   borderRadius={themeOptions.borderRadius}
-                  _focus={{ borderColor: themeOptions.focusColor }}
-                  _focusVisible={{ borderColor: themeOptions.focusColor }}
+                  _focus={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
+                  _focusVisible={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
                   isInvalid={!!errors.password}
                 />
                 <InputRightElement>
@@ -225,7 +225,7 @@ const Login = () => {
               </Checkbox>
               <Link
                 href="/recover-password"
-                _hover={{ color: themeOptions.focusColor }}
+                _hover={{ color: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
               >
                 Recuperar contraseña
               </Link>
@@ -267,7 +267,7 @@ const Login = () => {
               <Text>¿No tienes cuenta?</Text>
               <Link
                 href="/register"
-                _hover={{ color: themeOptions.focusColor }}
+                _hover={{ color: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
               >
                 Regístrate
               </Link>
