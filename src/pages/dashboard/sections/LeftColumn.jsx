@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../../hooks/AuthContext";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 import {
   collection,
   onSnapshot,

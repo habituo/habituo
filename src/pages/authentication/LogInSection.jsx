@@ -30,7 +30,7 @@ import gLogo from "../../assets/images/icons/g-icon.webp";
 import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { auth, googleProvider } from "../../hooks/firebase";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "../../theme/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
 
 const LogInSection = () => {

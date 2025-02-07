@@ -16,11 +16,11 @@ import {
   Heading,
   useColorMode,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 import { FaPlus } from "react-icons/fa6";
 import { db } from "../../../hooks/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
-import { useAuth } from "../../../hooks/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import * as LuIcons from "react-icons/lu";
 
 const AllAreas = () => {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../assets/images/habituo-logo.svg";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../hooks/firebase";
-import { useAuth } from "../../hooks/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Box,
   Container,
@@ -21,7 +21,7 @@ import {
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
-import { useTheme } from "../../theme/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const RecoverPassword = () => {
   const { user } = useAuth();

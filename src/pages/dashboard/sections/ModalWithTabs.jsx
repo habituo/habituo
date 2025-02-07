@@ -23,7 +23,7 @@ import {
   FormLabel,
   Image,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 import gLogo from "../../../assets/images/icons/g-icon.webp";
 import mailLogo from "../../../assets/images/icons/mail.svg";
 import { LuMoon, LuSun } from "react-icons/lu";

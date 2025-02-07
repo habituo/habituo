@@ -19,7 +19,7 @@ import {
   ModalFooter,
   useDisclosure,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 
 const DeleteAccountButton = () => {
   const { themeOptions } = useTheme();

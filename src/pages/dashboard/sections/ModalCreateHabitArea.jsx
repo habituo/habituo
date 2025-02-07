@@ -42,8 +42,8 @@ import {
   serverTimestamp,
   getDocs,
 } from "firebase/firestore";
-import { useAuth } from "../../../hooks/AuthContext";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 
 const ModalCreateHabitArea = ({ isOpen, onClose }) => {
   const [areas, setAreas] = useState([]);

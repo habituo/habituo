@@ -17,7 +17,7 @@ import {
   IconButton,
   useColorMode,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 import { FaPlus } from "react-icons/fa6";
 import * as LuIcons from "react-icons/lu";
 

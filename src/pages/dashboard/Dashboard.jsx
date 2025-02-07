@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, Navigate, useLocation, useParams } from "react-router-dom";
-import { useAuth } from "../../hooks/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { collection, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../../hooks/firebase";
 import { AllAreas, AllHabits, AreaPage, HabitPage, LeftColumn } from "../../routes/index";
 import customTheme from "../../theme/theme";
-import { useTheme } from "../../theme/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 import { ChakraProvider } from "@chakra-ui/react";
 
 const Dashboard = () => {

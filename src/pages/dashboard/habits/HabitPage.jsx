@@ -16,7 +16,7 @@ import {
   useColorMode,
 } from "@chakra-ui/react";
 import * as LuIcons from "react-icons/lu";
-import {useTheme} from "../../../theme/ThemeContext";
+import {useTheme} from "../../../context/ThemeContext";
 
 const HabitPage = ({ habits, fetchHabits }) => {
   const {colorMode} = useColorMode();

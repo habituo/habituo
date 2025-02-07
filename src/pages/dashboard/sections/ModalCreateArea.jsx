@@ -22,8 +22,8 @@ import {
 import * as LuIcons from "react-icons/lu";
 import { db } from "../../../hooks/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { useAuth } from "../../../hooks/AuthContext";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 
 const ModalCreateArea = ({ isOpen, onClose }) => {
   const [areaName, setAreaName] = useState("");

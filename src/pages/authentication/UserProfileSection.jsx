@@ -17,8 +17,8 @@ import {
   Icon,
 } from "@chakra-ui/react";
 import { FiLogOut } from "react-icons/fi";
-import { useAuth } from "../../hooks/AuthContext";
-import { useTheme } from "../../theme/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const UserProfileSection = () => {
   const { themeOptions } = useTheme();

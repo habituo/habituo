@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home, Login, Register, RecoverPassword, Dashboard } from "./routes/index";
-import "./styles/css/index.css";
+import "./styles/index.css";
 
 function App() {
   return (
