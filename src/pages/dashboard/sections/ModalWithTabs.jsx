@@ -22,14 +22,17 @@ import {
   Input,
   FormLabel,
   Image,
+  Badge,
+  useToast,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../theme/ThemeContext";
+import { useTheme } from "../../../context/ThemeContext";
 import gLogo from "../../../assets/images/icons/g-icon.webp";
 import mailLogo from "../../../assets/images/icons/mail.svg";
 import { LuMoon, LuSun } from "react-icons/lu";
 import { FaUser, FaCog } from "react-icons/fa";
 import DeleteAccountButton from "./DeleteAccount";
-import { db } from "../../../hooks/firebase"; // Asegúrate de importar tu configuración de Firebase
+import { signOut } from "firebase/auth";
+import { db } from "../../../hooks/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
@@ -51,6 +54,7 @@ const ModalWithTabs = ({ userInfo, userData }) => {
   const user = auth.currentUser;
   const location = useLocation();
   const isActive = location.pathname === "/dashboard/settings";
+  const toast = useToast();
 
   // Function to handle tab change when user clicks on a tab
   const handleTabChange = (index) => {
@@ -67,8 +71,19 @@ const ModalWithTabs = ({ userInfo, userData }) => {
     userName = userInfo.email.split("@")[0];
   }
 
+  // Determine the account type
+  let typeAccountColor = "";
+  if (userData && userData.typeAccount) {
+    if (userData.typeAccount === "basic") {
+      typeAccountColor = "gray";
+    } else if (userData.typeAccount === "pro") {
+      typeAccountColor = "blue";
+    } else if (userData.typeAccount === "insider") {
+      typeAccountColor = "yellow";
+    }
+  }
+
   useEffect(() => {
-    // Obtener el nombre actual del usuario
     const fetchUser = async () => {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
@@ -83,9 +98,37 @@ const ModalWithTabs = ({ userInfo, userData }) => {
     const newName = e.target.value;
     setName(newName);
 
-    // Actualizar en la base de datos
-    const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, { name: newName });
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, { name: newName });
+    } catch (error) {
+      console.error("Error updating name:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Sesión cerrada.",
+        description: "Has cerrado sesión exitosamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom",
+      });
+
+      window.location.href = "/";
+    } catch (error) {
+      toast({
+        title: "Error al cerrar sesión.",
+        description: error.message,
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom",
+      });
+    }
   };
 
   return (
@@ -206,7 +249,16 @@ const ModalWithTabs = ({ userInfo, userData }) => {
                         src={`//wsrv.nl/?url=${userInfo.photoURL}`}
                         name={userName}
                         size="xl"
-                      />
+                      >
+                        <Badge
+                          top={0}
+                          right={-2}
+                          colorScheme={typeAccountColor}
+                          position="absolute"
+                        >
+                          {userData.typeAccount}
+                        </Badge>
+                      </Avatar>
                       <Box>
                         <FormLabel
                           m={1}
@@ -218,16 +270,47 @@ const ModalWithTabs = ({ userInfo, userData }) => {
                           Nombre
                         </FormLabel>
                         <Input
-                        type="text"
+                          type="text"
                           value={name}
                           onChange={handleChange}
                           borderRadius={themeOptions.borderRadius}
                           colorScheme={themeOptions.focusColor}
-                        _focus={{ borderColor: themeOptions.focusColor }}
-                        _focusVisible={{ borderColor: themeOptions.focusColor }}
+                          _focus={{ borderColor: themeOptions.focusColor }}
+                          _focusVisible={{
+                            borderColor: themeOptions.focusColor,
+                          }}
                         />
                       </Box>
                     </HStack>
+                    <FormLabel
+                      mt={5}
+                      mb={1}
+                      fontSize="xs"
+                      fontWeight="semibold"
+                      textTransform="uppercase"
+                      opacity={0.4}
+                    >
+                      Datos personales
+                    </FormLabel>
+                    <Box>
+                      <HStack
+                        mt={1}
+                        p={2}
+                        border="1px solid"
+                        borderColor="var(--chakra-colors-chakra-border-color)"
+                        borderRadius={themeOptions.borderRadius}
+                      >
+                        <Image mx={2} src={mailLogo} w="30px" h="30px" />
+                        <Box>
+                          <Text fontSize="md" fontWeight="semibold">
+                            Correo electrónico
+                          </Text>
+                          <Text fontSize="sm" fontWeight="light">
+                            {userInfo.email}
+                          </Text>
+                        </Box>
+                      </HStack>
+                    </Box>
                     <FormLabel
                       mt={5}
                       mb={1}
@@ -246,7 +329,7 @@ const ModalWithTabs = ({ userInfo, userData }) => {
                         borderColor="var(--chakra-colors-chakra-border-color)"
                         borderRadius={themeOptions.borderRadius}
                       >
-                        {userData ? (
+                        {userData.authProvider === "email" ? (
                           <>
                             <Image mx={2} src={mailLogo} w="30px" h="30px" />
                             <Box>
@@ -260,7 +343,7 @@ const ModalWithTabs = ({ userInfo, userData }) => {
                           </>
                         ) : (
                           <>
-                            <Image me={4} src={gLogo} w="30px" h="30px" />
+                            <Image mx={2} src={gLogo} w="30px" h="30px" />
                             <Box>
                               <Text fontSize="md">Cuenta de Google</Text>
                               <Text fontSize="sm" fontWeight="light">
@@ -292,7 +375,33 @@ const ModalWithTabs = ({ userInfo, userData }) => {
                       >
                         <Box>
                           <Text fontSize="md" fontWeight="semibold">
-                            Eliminar cuenta
+                            Cerrar sesión
+                          </Text>
+                          <Text fontSize="xs" fontWeight="regular">
+                            Si deseas cerrar sesión, podrás volver cuando
+                            quieras y no perderás tu progreso.
+                          </Text>
+                        </Box>
+                        <Button
+                          px={6}
+                          py={0}
+                          colorScheme="red"
+                          variant="outline"
+                          onClick={handleLogout}
+                        >
+                          Cerrar sesión
+                        </Button>
+                      </HStack>
+                      <HStack
+                        mt={1}
+                        p={4}
+                        border="1px solid"
+                        borderColor="var(--chakra-colors-chakra-border-color)"
+                        borderRadius={themeOptions.borderRadius}
+                      >
+                        <Box>
+                          <Text fontSize="md" fontWeight="semibold">
+                            Eliminar
                           </Text>
                           <Text fontSize="xs" fontWeight="regular">
                             SI eliminas tu cuenta perderás todo el proceso y

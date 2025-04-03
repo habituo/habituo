@@ -7,7 +7,7 @@ export const useTheme = () => useContext(ThemeContext);
 export const ThemeProvider = ({ children }) => {
   const defaultTheme = {
     focusColor: "blue",
-    fontFamily: "Inter",
+    fontFamily: "Outfit",
     borderRadius: "lg",
   };
 

@@ -1,16 +1,12 @@
 import React, { useState } from "react";
-import gLogo from "../../assets/images/icons/g-icon.webp";
-import logo from "../../assets/images/habituo-logo.svg";
 import { signInWithPopup, signInWithEmailAndPassword } from "firebase/auth";
 import { auth, googleProvider } from "../../hooks/firebase";
-import { useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import {
   Box,
   Container,
   Flex,
   Image,
-  Heading,
   Text,
   FormControl,
   FormLabel,
@@ -24,261 +20,216 @@ import {
   Button,
   Checkbox,
   Link,
-  Avatar,
+  useToast,
 } from "@chakra-ui/react";
-import { useTheme } from "../../theme/ThemeContext";
-import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import { useAuth } from "../../hooks/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
+import { LuEye, LuEyeOff } from "react-icons/lu";
+import { FaGoogle } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+import logo from "../../assets/images/habituo-logo.svg";
 
 const Login = () => {
-  const navigate = useNavigate();
-  const { themeOptions, updateTheme } = useTheme();
+  const { themeOptions } = useTheme();
+  const { user } = useAuth();
+  const toast = useToast();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState({ email: "", password: "" });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true); 
+  const [rememberMe, setRememberMe] = useState(true);
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  if (user) {
+    window.location.href = "/dashboard";
+    return null;
+  }
+
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
+
+  const validateFields = () => {
+    const newErrors = {};
+    if (
+      !credentials?.email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)
+    ) {
+      newErrors.email = "Por favor, introduce un correo válido.";
+    }
+    if (!credentials?.password) {
+      newErrors.password = "La contraseña no puede estar vacía.";
+    }
+    return newErrors;
   };
 
   const handleLogin = async () => {
     setIsSubmitted(true);
-
-    const newErrors = { email: "", password: "" };
-
-    if (!validateEmail(email)) {
-      newErrors.email = "Por favor, introduce un correo válido.";
-    }
-
-    if (!password) {
-      newErrors.password = "La contraseña no puede estar vacía.";
-    }
-
+    const newErrors = validateFields();
     setErrors(newErrors);
-
-    if (newErrors.email || newErrors.password) return;
+    if (Object.keys(newErrors).length) return;
 
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      if (rememberMe) {
-        // Guardamos la sesión en una cookie con duración de 30 días si la opción está marcada
-        Cookies.set("userSession", email, { expires: 30 });
-      } else {
-        // Si no se marca, eliminamos la cookie (no se guarda sesión)
-        Cookies.set("userSession", email, { expires: 1 });
-      }
-      navigate("/dashboard");
-    } catch (error) {
-      if (error.code === "auth/user-not-found") {
-        setErrors((prev) => ({
-          ...prev,
-          email: "No se encontró una cuenta con este correo.",
-        }));
-      } else if (error.code === "auth/wrong-password") {
-        setErrors((prev) => ({
-          ...prev,
-          password: "La contraseña es incorrecta.",
-        }));
-      } else if (error.code === "auth/invalid-credential") {
-        setErrors((prev) => ({
-          ...prev,
-          password2: "El correo o la contraseña son incorrectos.",
-        }));
-      } else {
-        setErrors((prev) => ({
-          ...prev,
-          email: "Ocurrió un error inesperado. Inténtalo más tarde.",
-        }));
-      }
-    }
-  };
+      await signInWithEmailAndPassword(
+        auth,
+        credentials.email,
+        credentials.password
+      );
+      Cookies.set("userSession", credentials.email, {
+        expires: rememberMe ? 30 : 1,
+      });
 
-  const handleRememberMeChange = () => {
-    setRememberMe(!rememberMe);
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Has iniciado sesión correctamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+
+      window.location.href = "/dashboard";
+    } catch (error) {
+      setErrors({ email: "Correo o contraseña incorrectos." });
+      toast({
+        title: "Error en inicio de sesión",
+        description: "Correo o contraseña incorrectos.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+    }
   };
 
   const signInWithGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      navigate("/dashboard");
-    } catch (error) {}
+      await signInWithPopup(auth, googleProvider);
+      toast({
+        title: "Inicio de sesión con Google",
+        description: "Has iniciado sesión con Google correctamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+      window.location.href = "/dashboard";
+    } catch {
+      toast({
+        title: "Error con Google",
+        description: "Hubo un problema al iniciar sesión con Google.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+    }
   };
 
-  const handleClick = () => setShowPassword(!showPassword);
-  const { user } = useAuth();
-
-  if (!user) {
-    return (
-      <Container
-        w="100%"
-        maxW="md"
-        minH="100vh"
-        as="main"
-        onUpdateTheme={updateTheme}
-        fontFamily={themeOptions.fontFamily}
-        userSelect="none"
+  return (
+    <Container
+      as="main"
+      fontFamily={themeOptions.fontFamily}
+      userSelect="none"
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minH="100vh"
+    >
+      <Flex
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        gap={6}
+        w={{ base: "auto", md: "500px" }}
       >
-        <Flex
-          h="100vh"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-          gap={6}
-        >
-          {/* Logo */}
-          <Box>
-            <Link href="/">
-              <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
-            </Link>
-          </Box>
-
-          {/* Heading */}
-          <Box>
-            <Heading
-              size="xl"
-              textAlign="center"
-              fontFamily={themeOptions.fontFamily}
-            >
-              Bienvenido/a
-            </Heading>
-            <Text textAlign="center">
-              Inicia sesión usando tus credenciales
-            </Text>
-          </Box>
-
-          {/* Form */}
-          <FormControl
-            display="flex"
-            flexDirection="column"
-            gap={6}
-            isInvalid={isSubmitted && !!errors.email}
-          >
-            <Box w="100%">
-              <FormLabel>Correo electrónico</FormLabel>
-              <Input
-                type="email"
-                variant="outline"
-                size="sm"
-                h="2.5rem"
-                onChange={(e) => setEmail(e.target.value)}
-                borderRadius={themeOptions.borderRadius}
-                _focus={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-                _focusVisible={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-                isInvalid={!!errors.email}
-              />
-              {errors.email && (
-                <FormErrorMessage>{errors.email}</FormErrorMessage>
-              )}
-            </Box>
-            <Box w="100%">
-              <FormLabel>Contraseña</FormLabel>
-              <InputGroup>
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  variant="outline"
-                  size="sm"
-                  h="2.5rem"
-                  onChange={(e) => setPassword(e.target.value)}
-                  borderRadius={themeOptions.borderRadius}
-                  _focus={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-                  _focusVisible={{ borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-                  isInvalid={!!errors.password}
-                />
-                <InputRightElement>
-                  <IconButton
-                    aria-label={
-                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-                    }
-                    w="36px"
-                    h="36px"
-                    bg="transparent"
-                    border="none"
-                    fontSize="md"
-                    variant="outline"
-                    size="sm"
-                    borderRadius={themeOptions.borderRadius}
-                    _focusVisible="none"
-                    icon={
-                      showPassword ? (
-                        <AiOutlineEyeInvisible />
-                      ) : (
-                        <AiOutlineEye />
-                      )
-                    }
-                    onClick={handleClick}
-                  />
-                </InputRightElement>
-              </InputGroup>
-              {errors.password && (
-                <FormErrorMessage>{errors.password}</FormErrorMessage>
-              )}
-            </Box>
-            <HStack alignItems="center" justifyContent="space-between">
-              <Checkbox colorScheme={themeOptions.focusColor} onChange={handleRememberMeChange} checked={rememberMe} defaultChecked>
-                Recordarme
-              </Checkbox>
-              <Link
-                href="/recover-password"
-                _hover={{ color: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-              >
-                Recuperar contraseña
-              </Link>
-            </HStack>
-            <VStack gap={4} alignItems="stretch">
-              <Button
-                size="md"
-                colorScheme={themeOptions.focusColor}
-                borderRadius={themeOptions.borderRadius}
-                fontSize="sm"
-                onClick={handleLogin}
-                _focusVisible="none"
-              >
-                Iniciar sesión
-              </Button>
-              <Button
-                onClick={signInWithGoogle}
-                size="md"
-                fontSize="sm"
+        <Link href="/">
+          <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
+        </Link>
+        <Box textAlign="center">
+          <Text fontSize="xl" fontFamily={themeOptions.fontFamily} fontWeight="600">
+            Bienvenido/a
+          </Text>
+          <Text>Inicia sesión usando tus credenciales</Text>
+        </Box>
+        <FormControl isInvalid={isSubmitted && errors.email}>
+          <FormLabel>Correo electrónico</FormLabel>
+          <Input
+            type="email"
+            name="email"
+            size="sm"
+            h="2.5rem"
+            variant="outline"
+            value={credentials.email}
+            borderRadius={themeOptions.borderRadius}
+            onChange={handleChange}
+            _focusVisible={{
+              borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+            }}
+          />
+          <FormErrorMessage>{errors.email}</FormErrorMessage>
+        </FormControl>
+        <FormControl isInvalid={isSubmitted && errors.password}>
+          <FormLabel>Contraseña</FormLabel>
+          <InputGroup>
+            <Input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              size="sm"
+              h="2.5rem"
+              variant="outline"
+              value={credentials.password}
+              onChange={handleChange}
+              borderRadius={themeOptions.borderRadius}
+              _focusVisible={{
+                borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+              }}
+            />
+            <InputRightElement>
+              <IconButton
                 bg="transparent"
-                borderWidth="1px"
-                borderColor="var(--chakra-colors-gray-200)"
-                borderRadius={themeOptions.borderRadius}
-                _focusVisible="none"
-                leftIcon={
-                  <Avatar
-                    src={gLogo}
-                    size="xs"
-                    w="20px"
-                    h="20px"
-                    bg="transparent"
-                  />
-                }
-              >
-                Iniciar sesión con Google
-              </Button>
-            </VStack>
-            <HStack alignItems="center" justifyContent="center">
-              <Text>¿No tienes cuenta?</Text>
-              <Link
-                href="/register"
-                _hover={{ color: `var(--chakra-colors-${themeOptions.focusColor}-500)` }}
-              >
-                Regístrate
-              </Link>
-            </HStack>
-          </FormControl>
-        </Flex>
-      </Container>
-    );
-  } else {
-    return <>{navigate("/dashboard")}</>;
-  }
+                aria-label="Toggle password visibility"
+                icon={showPassword ? <LuEyeOff /> : <LuEye />}
+                fontSize="xl"
+                onClick={() => setShowPassword(!showPassword)}
+                _hover={{ bg: "transparent" }}
+              />
+            </InputRightElement>
+          </InputGroup>
+          <FormErrorMessage>{errors.password}</FormErrorMessage>
+        </FormControl>
+        <HStack justify="space-between" w="100%">
+          <Checkbox
+            colorScheme={themeOptions.focusColor}
+            isChecked={rememberMe}
+            onChange={() => setRememberMe(!rememberMe)}
+          >
+            Recordarme
+          </Checkbox>
+          <Link href="/recover-password">Recuperar contraseña</Link>
+        </HStack>
+        <VStack w="100%" alignItems="stretch" gap={4}>
+          <Button
+            colorScheme={themeOptions.focusColor}
+            borderRadius={themeOptions.borderRadius}
+            onClick={handleLogin}
+          >
+            Iniciar sesión
+          </Button>
+          <Button
+            onClick={signInWithGoogle}
+            borderRadius={themeOptions.borderRadius}
+            leftIcon={<FaGoogle />}
+          >
+            Iniciar sesión con Google
+          </Button>
+        </VStack>
+        <HStack>
+          <Text>¿No tienes cuenta?</Text>
+          <Link href="/register">Regístrate</Link>
+        </HStack>
+      </Flex>
+    </Container>
+  );
 };
 
 export default Login;

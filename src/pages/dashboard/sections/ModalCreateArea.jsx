@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Text,
   HStack,
   Modal,
   ModalOverlay,
@@ -9,60 +10,150 @@ import {
   ModalFooter,
   ModalCloseButton,
   Button,
+  FormControl,
+  FormErrorMessage,
   Input,
   SimpleGrid,
   Box,
   Popover,
   PopoverTrigger,
   PopoverContent,
-  PopoverArrow,
   PopoverBody,
-  FormLabel,
+  useToast,
+  useColorMode,
 } from "@chakra-ui/react";
 import * as LuIcons from "react-icons/lu";
 import { db } from "../../../hooks/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { useAuth } from "../../../hooks/AuthContext";
-import { useTheme } from "../../../theme/ThemeContext";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
+import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 
-const ModalCreateArea = ({ isOpen, onClose }) => {
+const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
   const [areaName, setAreaName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("LuFolder");
+  const [error, setError] = useState("");
+  const [visibleIcons, setVisibleIcons] = useState(30);
+  const [searchIcon, setSearchIcon] = useState("");
   const { user } = useAuth();
   const { themeOptions } = useTheme();
+  const toast = useToast();
+  const { colorMode } = useColorMode();
+  const isEditing = !!selectedArea;
+
+  // Validate the name on real time
+  const validateName = (value) => {
+    if (!value.trim()) {
+      setError("El nombre del área no puede estar vacío.");
+      return false;
+    }
+    if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]+$/.test(value)) {
+      setError("Solo se permiten letras, números y espacios.");
+      return false;
+    }
+    setError("");
+    return true;
+  };
+
+  // Lazy load icons
+  const loadMoreIcons = () => {
+    setVisibleIcons((prev) => prev + 30);
+  };
+
+  const filteredIcons = Object.keys(LuIcons).filter((iconName) =>
+    iconName.toLowerCase().includes(searchIcon.toLowerCase())
+  );
 
   const handleSave = async () => {
-    if (areaName.trim() === "" || !user) return;
+    if (!validateName(areaName) || !user) return;
 
     try {
-      // Referencia a la colección de áreas del usuario
       const areasRef = collection(db, `users/${user.uid}/areas`);
 
-      // Guardar área en Firestore
-      await addDoc(areasRef, {
-        name: areaName,
-        icon: selectedIcon,
-        registeredAt: serverTimestamp(),
-      });
+      if (isEditing) {
+        const areaDoc = doc(db, `users/${user.uid}/areas/${selectedArea.id}`);
+        await updateDoc(areaDoc, {
+          name: areaName,
+          icon: selectedIcon,
+        });
+
+        toast({
+          title: <Text fontWeight="600">Área actualizada</Text>,
+          description: `El área "${areaName}" se actualizó correctamente.`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "bottom-center",
+          containerStyle: { borderRadius: themeOptions.borderRadius },
+        });
+      } else {
+        await addDoc(areasRef, {
+          name: areaName,
+          icon: selectedIcon,
+          registeredAt: serverTimestamp(),
+        });
+
+        toast({
+          title: <Text fontWeight="600">Área creada</Text>,
+          description: `Se ha creado el área "${areaName}" correctamente.`,
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          position: "bottom-center",
+          containerStyle: { borderRadius: themeOptions.borderRadius },
+        });
+      }
 
       setAreaName("");
       setSelectedIcon("LuFolder");
       onClose();
     } catch (error) {
-      console.error("Error al guardar el área:", error);
+      toast({
+        title: <Text fontWeight="600">Error al crear</Text>,
+        description: "No se pudo agregar el área. Inténtalo de nuevo.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+        containerStyle: { borderRadius: themeOptions.borderRadius },
+      });
     }
   };
 
+  useEffect(() => {
+    if (selectedArea) {
+      setAreaName(selectedArea.name);
+      setSelectedIcon(selectedArea.icon || "LuFolder");
+    } else {
+      setAreaName("");
+      setSelectedIcon("LuFolder");
+    }
+  }, [selectedArea]);
+
   return (
     <>
-      {/* Modal que se activa desde cualquier botón */}
       <Modal isOpen={isOpen} onClose={onClose} isCentered>
         <ModalOverlay />
-        <ModalContent borderRadius={themeOptions.borderRadius}>
-          <ModalHeader>Crear nueva área</ModalHeader>
-          <ModalCloseButton borderRadius={themeOptions.borderRadius} />
-          <ModalBody>
-            <HStack alignItems="center">
+        <ModalContent
+          borderRadius={themeOptions.borderRadius}
+          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+        >
+          <ModalHeader p={4}>
+            {isEditing ? "Editar área" : "Crear nueva área"}
+          </ModalHeader>
+          <ModalCloseButton
+            top={2}
+            right={2}
+            borderRadius={themeOptions.borderRadius}
+          />
+          <ModalBody px={4}>
+            <HStack alignItems="flex-start">
+              <FormControl isInvalid={error}>
                 <Input
                   type="text"
                   variant="outline"
@@ -71,26 +162,81 @@ const ModalCreateArea = ({ isOpen, onClose }) => {
                   placeholder="Nombre del área"
                   value={areaName}
                   borderRadius={themeOptions.borderRadius}
-                  _focus={{ borderColor: themeOptions.focusColor }}
-                  _focusVisible={{ borderColor: themeOptions.focusColor }}
-                  onChange={(e) => setAreaName(e.target.value)}
+                  _focusVisible={{
+                    borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+                  }}
+                  onChange={(e) => {
+                    setAreaName(e.target.value);
+                    validateName(e.target.value);
+                  }}
                 />
+                <FormErrorMessage>{error}</FormErrorMessage>
+              </FormControl>
               <Popover>
                 <PopoverTrigger>
-                  <Button>
+                  <Button
+                    bg={
+                      colorMode === "light"
+                        ? "var(--chakra-colors-gray-200)"
+                        : "var(--chakra-colors-whiteAlpha-200)"
+                    }
+                    _hover={{
+                      bg:
+                        colorMode === "light"
+                          ? "var(--chakra-colors-gray-300)"
+                          : "var(--chakra-colors-whiteAlpha-300)",
+                    }}
+                    fontSize="20px"
+                  >
                     {React.createElement(LuIcons[selectedIcon])}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent w="fit-content">
-                  <PopoverArrow />
+                <PopoverContent
+                  w="fit-content"
+                  borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(245, 245, 245)"
+                      : "rgb(23, 23, 23)"
+                  }
+                >
                   <PopoverBody
+                    p={2}
                     maxH="300px"
                     overflowY="scroll"
                     overflowX="hidden"
                     borderRadius={themeOptions.borderRadius}
+                    userSelect="none"
+                    sx={{
+                      "&::-webkit-scrollbar": {
+                        width: "4px",
+                      },
+                      "&::-webkit-scrollbar-thumb": {
+                        backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
+                        borderRadius: "4px",
+                      },
+                      "&::-webkit-scrollbar-thumb:hover": {
+                        backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
+                      },
+                      "&::-webkit-scrollbar-track": {
+                        backgroundColor: "transparent",
+                        borderRadius: "4px",
+                      },
+                    }}
                   >
+                    <Input
+                      mb={2}
+                      placeholder="Buscar icono..."
+                      size="sm"
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible={{
+                        borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+                      }}
+                      value={searchIcon}
+                      onChange={(e) => setSearchIcon(e.target.value)}
+                    />
                     <SimpleGrid columns={6} spacing={1}>
-                      {Object.keys(LuIcons).map((iconName) => {
+                      {filteredIcons.slice(0, visibleIcons).map((iconName) => {
                         const IconComponent = LuIcons[iconName];
                         return (
                           <Box
@@ -107,24 +253,51 @@ const ModalCreateArea = ({ isOpen, onClose }) => {
                             onClick={() => {
                               setSelectedIcon(iconName);
                             }}
-                            _hover={{ borderColor: themeOptions.focusColor }}
+                            transition=".1s all linear"
+                            bg={
+                              colorMode === "light"
+                                ? "rgb(255, 255, 255)"
+                                : "rgb(0, 0, 0)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? `var(--chakra-colors-${themeOptions.focusColor}-50)`
+                                  : "var(--chakra-colors-blackAlpha-600)",
+                              borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+                            }}
                           >
                             <IconComponent size="20px" />
                           </Box>
                         );
                       })}
                     </SimpleGrid>
+                    {visibleIcons < Object.keys(LuIcons).length && (
+                      <Button
+                        size="sm"
+                        mt={2}
+                        onClick={loadMoreIcons}
+                        w="100%"
+                        colorScheme={themeOptions.focusColor}
+                      >
+                        Ver más iconos
+                      </Button>
+                    )}
                   </PopoverBody>
                 </PopoverContent>
               </Popover>
             </HStack>
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter p={4}>
             <Button onClick={onClose} mr={3}>
               Cancelar
             </Button>
-            <Button colorScheme={themeOptions.focusColor} onClick={handleSave}>
-              Guardar
+            <Button
+              colorScheme={themeOptions.focusColor}
+              onClick={handleSave}
+              isDisabled={error !== "" || areaName.trim() === ""}
+            >
+              {isEditing ? "Actualizar" : "Crear"}
             </Button>
           </ModalFooter>
         </ModalContent>

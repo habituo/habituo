@@ -3,13 +3,12 @@ import { useNavigate } from "react-router-dom";
 import logo from "../../assets/images/habituo-logo.svg";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../hooks/firebase";
-import { useAuth } from "../../hooks/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Box,
   Container,
   Flex,
   Image,
-  Heading,
   Text,
   FormControl,
   FormLabel,
@@ -21,7 +20,7 @@ import {
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
-import { useTheme } from "../../theme/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const RecoverPassword = () => {
   const { user } = useAuth();
@@ -94,13 +93,14 @@ const RecoverPassword = () => {
 
           {/* Heading */}
           <Box>
-            <Heading
-              size="xl"
+            <Text
+              fontSize="xl"
               textAlign="center"
               fontFamily={themeOptions.fontFamily}
+              fontWeight="600"
             >
               Recupera tu contraseña
-            </Heading>
+            </Text>
             <Text textAlign="center">
               Introduce tu correo electrónico y te enviaremos un enlace para
               restablecer tu contraseña.

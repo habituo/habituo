@@ -18,7 +18,7 @@ import {
 import { useEffect, useState } from "react";
 import { IconButton } from "@chakra-ui/react";
 import { LuMoon, LuSun } from "react-icons/lu";
-import { useTheme } from "../theme/ThemeContext";
+import { useTheme } from "../context/ThemeContext";
 import customTheme from "./theme";
 
 /**

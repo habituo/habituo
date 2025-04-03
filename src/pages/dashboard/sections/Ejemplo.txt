@@ -176,7 +176,8 @@ const AllHabits = ({ setSelectedHabit }) => {
       }
 
       const now = new Date();
-      const dateString = now.toISOString();
+    const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const dateString = utcDate.toISOString().split("T")[0];
 
       const recordsRef = collection(
         db,
@@ -192,7 +193,6 @@ const AllHabits = ({ setSelectedHabit }) => {
         status: "completed",
         timestamp: now,
         date: dateString,
-        times: 1,
       };
 
       if (habit.type === "weekly") {
@@ -215,11 +215,9 @@ const AllHabits = ({ setSelectedHabit }) => {
       }
 
       if (existingRecord) {
-        await updateDoc(existingRecord.ref, {
-          times: (existingRecord.data().times || 0) + 1,
-        });
+        await updateDoc(existingRecord.ref, recordData);
       } else {
-        const recordId = dateString;
+        const recordId = now.toISOString();
         await setDoc(
           doc(
             db,
@@ -273,7 +271,8 @@ const AllHabits = ({ setSelectedHabit }) => {
       }
 
       const now = new Date();
-      const dateString = now.toISOString().split("T")[0];
+    const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const dateString = utcDate.toISOString().split("T")[0];
 
       const recordsRef = collection(
         db,
@@ -289,15 +288,15 @@ const AllHabits = ({ setSelectedHabit }) => {
         status: "skipped",
         timestamp: now,
         date: dateString,
-        times: 0,
       };
 
       if (existingRecord) {
         await updateDoc(existingRecord.ref, recordData);
       } else {
-        const recordId = dateString;
+        const recordId = now.toISOString();
         await setDoc(doc(recordsRef, recordId), recordData);
       }
+  
 
       toast({
         title: <Text fontWeight="600">Hábito saltado</Text>,
@@ -320,7 +319,7 @@ const AllHabits = ({ setSelectedHabit }) => {
   const checkFailedHabits = async (habit) => {
     try {
       const now = new Date();
-      const dateString = now.toLocaleDateString();
+      const dateString = now.toISOString().split("T")[0];
 
       // Obtener todos los registros del hábito
       const recordsRef = collection(

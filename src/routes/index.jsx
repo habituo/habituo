@@ -13,23 +13,18 @@ export { default as ModalCreateHabitArea } from "../pages/dashboard/sections/Mod
 export { default as AreaPage } from "../pages/dashboard/areas/AreaPage";
 export { default as HabitPage } from "../pages/dashboard/habits/HabitPage";
 
-
-// Pages - Habits
-
-
 // Authentication
 export { default as Login } from "../pages/authentication/Login";
 export { default as Register } from "../pages/authentication/Register";
 export { default as RecoverPassword } from "../pages/authentication/RecoverPassword";
-export { default as LogInSection } from "../pages/authentication/LogInSection";
 export { default as UserProfileSection } from "../pages/authentication/UserProfileSection";
 
 // Theme
 export { default as ThemePanel } from "../theme/ThemePanel";
 export { default as CustomThemePanel } from "../theme/CustomThemePanel";
 
-// Sections
-export { default as Navbar } from "../sections/Navbar";
-export { default as Footer } from "../sections/Footer";
+// Components
+export { default as Navbar } from "../components/Navbar";
+export { default as Footer } from "../components/Footer";
 export { default as ColumnHeader } from "../pages/dashboard/sections/ColumnHeader";
 export { default as LeftColumn } from "../pages/dashboard/sections/LeftColumn";
