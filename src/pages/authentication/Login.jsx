@@ -7,7 +7,6 @@ import {
   Container,
   Flex,
   Image,
-  Heading,
   Text,
   FormControl,
   FormLabel,
@@ -21,6 +20,7 @@ import {
   Button,
   Checkbox,
   Link,
+  useToast,
 } from "@chakra-ui/react";
 import { useTheme } from "../../context/ThemeContext";
 import { LuEye, LuEyeOff } from "react-icons/lu";
@@ -31,6 +31,8 @@ import logo from "../../assets/images/habituo-logo.svg";
 const Login = () => {
   const { themeOptions } = useTheme();
   const { user } = useAuth();
+  const toast = useToast();
+
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -75,19 +77,51 @@ const Login = () => {
       Cookies.set("userSession", credentials.email, {
         expires: rememberMe ? 30 : 1,
       });
+
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Has iniciado sesión correctamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+
       window.location.href = "/dashboard";
     } catch (error) {
-      console.error("Error en login:", error);
       setErrors({ email: "Correo o contraseña incorrectos." });
+      toast({
+        title: "Error en inicio de sesión",
+        description: "Correo o contraseña incorrectos.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
     }
   };
 
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
+      toast({
+        title: "Inicio de sesión con Google",
+        description: "Has iniciado sesión con Google correctamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
       window.location.href = "/dashboard";
     } catch {
-      alert("Ha fallado la conexión con Google.");
+      toast({
+        title: "Error con Google",
+        description: "Hubo un problema al iniciar sesión con Google.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
     }
   };
 
@@ -112,9 +146,9 @@ const Login = () => {
           <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
         </Link>
         <Box textAlign="center">
-          <Heading size="xl" fontFamily={themeOptions.fontFamily}>
+          <Text fontSize="xl" fontFamily={themeOptions.fontFamily} fontWeight="600">
             Bienvenido/a
-          </Heading>
+          </Text>
           <Text>Inicia sesión usando tus credenciales</Text>
         </Box>
         <FormControl isInvalid={isSubmitted && errors.email}>

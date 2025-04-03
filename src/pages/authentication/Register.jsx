@@ -16,7 +16,6 @@ import {
   Container,
   Flex,
   Image,
-  Heading,
   Text,
   FormControl,
   FormLabel,
@@ -29,7 +28,7 @@ import {
   IconButton,
   Button,
   Link,
-  Avatar,
+  useToast,
 } from "@chakra-ui/react";
 import { LuEye, LuEyeOff } from "react-icons/lu";
 import { FaGoogle } from "react-icons/fa";
@@ -47,10 +46,17 @@ const Register = () => {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const toast = useToast();
+
   const handleInputChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
   const handleClick = () => setShowPassword(!showPassword);
 
+  /**
+   * Validates the registration form.
+   * @returns {boolean} - True if the form is valid, false otherwise.
+   */
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name) newErrors.name = "El nombre es obligatorio.";
@@ -68,20 +74,37 @@ const Register = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const createUserDocument = async (userId, name, email) => {
+  /**
+   * Creates a user document in Firestore.
+   * @param {string} userId - Firebase user ID.
+   * @param {string} name - User's full name.
+   * @param {string} email - User's email.
+   * @param {string} authProvider - Authentication provider (email/google).
+   */
+  const createUserDocument = async (userId, name, email, authProvider) => {
     await setDoc(doc(db, "users", userId), {
-      name,
       email,
+      name,
+      birthday_date: "", // Empty, user can update later
+      type_account: "basic", // Default free plan
       registeredAt: serverTimestamp(),
+      subscriptionStatus: "inactive", // Future use for paid plans
+      planExpiresAt: "", // Future subscription expiration
+      authProvider, // To track how the user signed up
     });
   };
 
+  /**
+   * Creates default areas for a new user.
+   * @param {string} userId - Firebase user ID.
+   */
   const createDefaultAreas = async (userId) => {
     const batch = writeBatch(db);
     const areasRef = collection(db, "users", userId, "areas");
     const defaultAreas = ["Mañanas", "Tardes", "Noches"].map((name) => ({
-      name,
       icon: `Lu${name}`,
+      name,
+      registeredAt: serverTimestamp(),
     }));
     defaultAreas.forEach((area) =>
       batch.set(doc(areasRef, area.name), {
@@ -92,6 +115,9 @@ const Register = () => {
     await batch.commit();
   };
 
+  /**
+   * Registers a user using Google Authentication.
+   */
   const registerWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -100,16 +126,37 @@ const Register = () => {
         await createUserDocument(
           userId,
           result.user.displayName || "Usuario",
-          result.user.email
+          result.user.email,
+          "google"
         );
         await createDefaultAreas(userId);
       }
+
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Has iniciado sesión con Google.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+
       window.location.href = "/dashboard";
     } catch (error) {
-      console.error("Error con Google:", error);
+      toast({
+        title: "Error con Google",
+        description: "Hubo un problema al iniciar sesión con Google.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
     }
   };
 
+  /**
+   * Handles user registration with email and password.
+   */
   const handleRegister = async () => {
     setIsSubmitted(true);
     if (!validateForm()) return;
@@ -119,8 +166,24 @@ const Register = () => {
         formData.email,
         formData.password
       );
-      await createUserDocument(result.user.uid, formData.name, formData.email);
+
+      await createUserDocument(
+        result.user.uid,
+        formData.name,
+        formData.email,
+        "email"
+      );
       await createDefaultAreas(result.user.uid);
+
+      toast({
+        title: "Registro exitoso",
+        description: "Tu cuenta ha sido creada correctamente.",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
+      });
+
       window.location.href = "/dashboard";
     } catch (error) {
       setErrors({
@@ -128,6 +191,18 @@ const Register = () => {
           error.code === "auth/email-already-in-use"
             ? "El correo ya está en uso."
             : "Error al registrar.",
+      });
+
+      toast({
+        title: "Error al registrar",
+        description:
+          error.code === "auth/email-already-in-use"
+            ? "El correo ya está en uso."
+            : "Ha ocurrido un error inesperado.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "bottom-center",
       });
     }
   };
@@ -155,9 +230,9 @@ const Register = () => {
           <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
         </Link>
         <Box textAlign="center">
-          <Heading size="xl" fontFamily={themeOptions.fontFamily}>
+          <Text fontSize="xl" fontFamily={themeOptions.fontFamily} fontWeight="600">
             Bienvenido/a
-          </Heading>
+          </Text>
           <Text>Regístrate usando tus credenciales</Text>
         </Box>
         {["name", "email"].map((field) => (

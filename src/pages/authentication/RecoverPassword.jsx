@@ -9,7 +9,6 @@ import {
   Container,
   Flex,
   Image,
-  Heading,
   Text,
   FormControl,
   FormLabel,
@@ -94,13 +93,14 @@ const RecoverPassword = () => {
 
           {/* Heading */}
           <Box>
-            <Heading
-              size="xl"
+            <Text
+              fontSize="xl"
               textAlign="center"
               fontFamily={themeOptions.fontFamily}
+              fontWeight="600"
             >
               Recupera tu contraseña
-            </Heading>
+            </Text>
             <Text textAlign="center">
               Introduce tu correo electrónico y te enviaremos un enlace para
               restablecer tu contraseña.

@@ -160,6 +160,13 @@ const LeftColumn = ({ userInfo }) => {
     }
   };
 
+  // Function to edit area selected
+  const handleEdit = (area) => {
+    setSelectedArea(area);
+    console.log("Area: ", area);
+    onOpenCreateModal();
+  };
+
   useEffect(() => {
     fetchUserData();
     fetchAreas();
@@ -269,7 +276,7 @@ const LeftColumn = ({ userInfo }) => {
         Todos los hábitos
       </Button>
       <Button
-      as={Button}
+        as={Button}
         px={3}
         w="100%"
         display="flex"
@@ -320,7 +327,7 @@ const LeftColumn = ({ userInfo }) => {
         }}
       >
         <Button
-        as={Button}
+          as={Button}
           px={3}
           w="100%"
           display="flex"
@@ -337,67 +344,109 @@ const LeftColumn = ({ userInfo }) => {
         {areas.map((area) => {
           const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
           return (
-            <Button
-              key={area.id}
-              as={Button}
-              px={3}
-              w="100%"
-              display="flex"
-              justifyContent="flex-start"
-              fontSize="sm"
-              onClick={() => navigate(`/dashboard/areas/${area.id}`)}
-              variant={areaId === area.id ? "solid" : "ghost"}
-              colorScheme={areaId === area.id ? themeOptions.focusColor : ""}
-              leftIcon={<IconComponent size="16px" />}
-              _focusVisible="none"
-              onContextMenu={(e) => handleContextMenu(e, area)}
-            >
-              {area.name}
-            </Button>
+            <>
+              <Button
+                as={Button}
+                px={3}
+                w="100%"
+                display="flex"
+                justifyContent="flex-start"
+                fontSize="sm"
+                onClick={() => navigate(`/dashboard/areas/${area.id}`)}
+                variant={areaId === area.id ? "solid" : "ghost"}
+                colorScheme={areaId === area.id ? themeOptions.focusColor : ""}
+                leftIcon={<IconComponent size="16px" />}
+                _focusVisible="none"
+                onContextMenu={(e) => handleContextMenu(e, area)}
+              >
+                {area.name}
+              </Button>
+              {isContextMenuVisible &&
+                selectedArea &&
+                selectedArea.id === area.id && (
+                  <HStack
+                    ref={contextMenuRef}
+                    position="absolute"
+                    top={contextMenuPosition.y}
+                    left={contextMenuPosition.x}
+                    bg="#fff"
+                    borderRadius={themeOptions.borderRadius}
+                    borderWidth="1px"
+                    zIndex="1000"
+                    display="flex"
+                    flexDirection="column"
+                    alignItems="center"
+                    justifyContent="stretch"
+                    gap="0"
+                  >
+                    <Button
+                      w="100%"
+                      size="sm"
+                      fontWeight={500}
+                      borderRadius={0}
+                      borderTopRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "var(--menu-bg)"
+                          : "rgb(23, 23, 23)"
+                      }
+                      _hover={{
+                        bg:
+                          colorMode === "light"
+                            ? "rgb(237 242 247)"
+                            : "rgba(255, 255, 255, 0.06)",
+                      }}
+                      onClick={() => handleEdit(area)}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      w="100%"
+                      size="sm"
+                      fontWeight={500}
+                      borderRadius={0}
+                      borderBottomRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "var(--menu-bg)"
+                          : "rgb(23, 23, 23)"
+                      }
+                      _hover={{
+                        bg:
+                          colorMode === "light"
+                            ? "rgb(237 242 247)"
+                            : "rgba(255, 255, 255, 0.06)",
+                      }}
+                      onClick={onOpenDeleteDialog}
+                    >
+                      Eliminar
+                    </Button>
+                  </HStack>
+                )}
+            </>
           );
         })}
-        {isContextMenuVisible && selectedArea && (
-          <HStack
-            ref={contextMenuRef}
-            position="absolute"
-            top={contextMenuPosition.y}
-            left={contextMenuPosition.x}
-            p={2}
-            bg="#fff"
-            borderRadius={themeOptions.borderRadius}
-            borderWidth="1px"
-            zIndex="1000"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Button
-              size="sm"
-              onClick={() => console.log("Editar:", selectedArea.id)}
-            >
-              Editar
-            </Button>
-            <Button size="sm" colorScheme="red" onClick={onOpenDeleteDialog}>
-              Eliminar
-            </Button>
-          </HStack>
-        )}
+
         {/* Dialogo de confirmación */}
-        <AlertDialog isOpen={isOpenDeleteDialog} onClose={onCloseDeleteDialog}>
+        <AlertDialog isOpen={isOpenDeleteDialog} onClose={onCloseDeleteDialog} isCentered>
           <AlertDialogOverlay>
-            <AlertDialogContent>
-              <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                Eliminar Área
+            <AlertDialogContent borderRadius={themeOptions.borderRadius}
+          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}>
+              <AlertDialogHeader p={4}>
+                Eliminar área
               </AlertDialogHeader>
 
-              <AlertDialogBody>
+              <AlertDialogBody px={4}>
                 ¿Estás seguro de que deseas eliminar el área{" "}
-                <b>{selectedArea?.name}</b>? Esta acción no se puede deshacer.
+                <b style={{fontWeight: '600'}}>{selectedArea?.name}</b>? Esta acción no se puede deshacer.
+                <br />
+                <br />
+                Perderás todos los hábitos que hay en el área, incluyendo sus procesos.
               </AlertDialogBody>
 
-              <AlertDialogFooter>
-                <Button onClick={onCloseDeleteDialog}>No</Button>
-                <Button colorScheme="red" onClick={handleDelete} ml={3}>
+              <AlertDialogFooter p={4}>
+                <Button onClick={onCloseDeleteDialog} mr={3}>No</Button>
+                <Button colorScheme="red" onClick={handleDelete}>
                   Sí, eliminar
                 </Button>
               </AlertDialogFooter>
@@ -405,7 +454,7 @@ const LeftColumn = ({ userInfo }) => {
           </AlertDialogOverlay>
         </AlertDialog>
         <Button
-        as={Button}
+          as={Button}
           px={3}
           w="100%"
           display="flex"
@@ -421,7 +470,11 @@ const LeftColumn = ({ userInfo }) => {
         </Button>
         <ModalCreateArea
           isOpen={isOpenCreateModal}
-          onClose={onCloseCreateModal}
+          onClose={() => {
+            setSelectedArea(null);
+            onCloseCreateModal();
+          }}
+          selectedArea={selectedArea}
         />
       </Box>
       <Text
@@ -434,7 +487,7 @@ const LeftColumn = ({ userInfo }) => {
       >
         Ajustes generales
       </Text>
-      <ModalWithTabs userInfo={userInfo} userData={userData} />
+      {userData && <ModalWithTabs userInfo={userInfo} userData={userData} />}
       <CustomThemePanel />
     </Box>
   );

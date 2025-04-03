@@ -51,7 +51,7 @@ const Footer = () => {
           
           {/* Access Links */}
           <VStack align={{base: "center", md: "start"}} spacing={4}>
-            <Text fontSize="md" fontWeight="bold">
+            <Text fontSize="md" fontWeight="600">
               Accesos
             </Text>
             <Link href="/" _hover={{ color: `${themeOptions.focusColor}.500` }}>
@@ -70,7 +70,7 @@ const Footer = () => {
 
           {/* Support Links */}
           <VStack align={{base: "center", md: "start"}} spacing={4}>
-            <Text fontSize="md" fontWeight="bold">
+            <Text fontSize="md" fontWeight="600">
               Soporte
             </Text>
             <Link
@@ -98,7 +98,7 @@ const Footer = () => {
 
           {/* Product Links */}
           <VStack align={{base: "center", md: "start"}} textAlign="center" spacing={4}>
-            <Text fontSize="md" fontWeight="bold">
+            <Text fontSize="md" fontWeight="600">
               Temas legales
             </Text>
             <Link href="#" _hover={{ color: `${themeOptions.focusColor}.500` }}>

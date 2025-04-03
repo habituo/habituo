@@ -17,7 +17,6 @@ export { default as HabitPage } from "../pages/dashboard/habits/HabitPage";
 export { default as Login } from "../pages/authentication/Login";
 export { default as Register } from "../pages/authentication/Register";
 export { default as RecoverPassword } from "../pages/authentication/RecoverPassword";
-export { default as LogInSection } from "../pages/authentication/LogInSection";
 export { default as UserProfileSection } from "../pages/authentication/UserProfileSection";
 
 // Theme

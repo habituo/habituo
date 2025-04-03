@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { collection, onSnapshot, getDocs } from "firebase/firestore";
@@ -6,7 +6,7 @@ import { db } from "../../hooks/firebase";
 import { AllAreas, AllHabits, AreaPage, HabitPage, LeftColumn } from "../../routes/index";
 import customTheme from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { ChakraProvider } from "@chakra-ui/react";
+import { ChakraProvider, useToast } from "@chakra-ui/react";
 
 const Dashboard = () => {
   const { themeOptions } = useTheme();
@@ -23,6 +23,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { areaId } = useParams();
   const [content, setContent] = useState(null);
+  const [selectedHabit, setSelectedHabit] = useState({});
+  const toast = useToast();
 
   useEffect(() => {
     if (location.pathname === "/dashboard" || location.pathname === "/dashboard/") {
@@ -67,10 +69,6 @@ const Dashboard = () => {
         return [];
       }
     };
-
-  useEffect(() => {
-    fetchAreas();
-  }, [user]);
 
   useEffect(() => {
     let isResizing = false;
@@ -141,24 +139,28 @@ const Dashboard = () => {
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
-
+  
   useEffect(() => {
     if (areaId) {
-      setContent(<AreaPage areas={areas} fetchHabits={fetchHabits} areaId={areaId} />);
+      setContent(<AreaPage areas={areas} fetchHabits={fetchHabits} user={user}
+        toast={toast} />);
     } else {
-      switch (true) {
-        case location.pathname === '/dashboard/all-habits':
-          setContent(<AllHabits />);
+      switch (location.pathname) {
+        case '/dashboard/all-habits':
+          setContent(<AllHabits setSelectedHabit={setSelectedHabit} />);
           break;
-        case location.pathname === '/dashboard/all-areas':
+        case '/dashboard/all-areas':
           setContent(<AllAreas />);
           break;
         default:
-          setContent(<AllHabits />);
+          setContent(<AllHabits setSelectedHabit={setSelectedHabit} />);
       }
     }
-  }, [location.pathname, areaId, areas]);
-  
+  }, [location.pathname, areaId, areas, user, toast]);
+
+  useEffect(() => {
+    fetchAreas();
+  }, [user]);
 
   return (
     <ChakraProvider
@@ -178,7 +180,7 @@ const Dashboard = () => {
         </div>
         <div ref={resizer2Ref} className="resizer" id="resizer2"></div>
         <div ref={col3Ref} className="column" id="col3" style={{ flex: 3 }}>
-          <HabitPage />
+          {selectedHabit && <HabitPage habit={selectedHabit} />}
         </div>
       </div>
     </ChakraProvider>

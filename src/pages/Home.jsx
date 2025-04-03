@@ -4,7 +4,6 @@ import {
   Container,
   HStack,
   VStack,
-  Heading,
   Text,
   Image,
 } from "@chakra-ui/react";
@@ -38,21 +37,22 @@ const Home = () => {
             maxW={{ base: "3xl" }}
             spacing={5}
           >
-            <Heading
+            <Text
               as="h1"
-              size="3xl"
+              fontSize="3xl"
               textAlign={{ base: "center", lg: "left" }}
+              fontWeight="600"
               fontFamily={themeOptions.fontFamily}
             >
               El mejor tracker de hábitos para alcanzar tus metas
-            </Heading>
+            </Text>
             <Text
               as="p"
               fontSize="md"
               textAlign={{ base: "center", lg: "left" }}
             >
               Convierte tus objetivos en hábitos duraderos. Con{" "}
-              <Text as="span" fontWeight="bold">
+              <Text as="span" fontWeight="600">
                 Habituo
               </Text>
               , diseña tu rutina ideal, ajusta recordatorios y haz un
@@ -81,14 +81,15 @@ const Home = () => {
             align={{ base: "center", lg: "start" }}
             spacing={5}
           >
-            <Heading
+            <Text
               as="h2"
-              size="2xl"
+              fontSize="2xl"
               textAlign={{ base: "center", lg: "left" }}
+              fontWeight="600"
               fontFamily={themeOptions.fontFamily}
             >
               Un dashboard a tu estilo
-            </Heading>
+            </Text>
             <Text
               as="p"
               fontSize="md"
@@ -99,7 +100,7 @@ const Home = () => {
               para que te resulte intuitiva y eficiente, dándote el control
               total sobre cómo gestionas tus hábitos diarios. Ya sea con un
               estilo minimalista o con un toque de color vibrante,{" "}
-              <Text as="span" fontWeight="bold">
+              <Text as="span" fontWeight="600">
                 Habituo
               </Text>{" "}
               se adapta a ti.
