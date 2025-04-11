@@ -23,27 +23,23 @@ import {
   useColorMode,
 } from "@chakra-ui/react";
 import * as LuIcons from "react-icons/lu";
-import { db } from "../../../hooks/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
-import { useAuth } from "../../../context/AuthContext";
-import { useTheme } from "../../../context/ThemeContext";
+import { addArea, updateAreaById } from "../hooks/database";
+import { serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
-const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
+const ModalArea = ({ isOpen, onClose, selectedArea }) => {
+  // Basic experience states
+  const { themeOptions } = useTheme();
+  const { colorMode } = useColorMode();
+  const { user } = useAuth();
+  const toast = useToast();
+
   const [areaName, setAreaName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState("LuFolder");
   const [error, setError] = useState("");
   const [visibleIcons, setVisibleIcons] = useState(30);
   const [searchIcon, setSearchIcon] = useState("");
-  const { user } = useAuth();
-  const { themeOptions } = useTheme();
-  const toast = useToast();
-  const { colorMode } = useColorMode();
   const isEditing = !!selectedArea;
 
   // Validate the name on real time
@@ -73,39 +69,30 @@ const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
     if (!validateName(areaName) || !user) return;
 
     try {
-      const areasRef = collection(db, `users/${user.uid}/areas`);
-
       if (isEditing) {
-        const areaDoc = doc(db, `users/${user.uid}/areas/${selectedArea.id}`);
-        await updateDoc(areaDoc, {
+        await updateAreaById(selectedArea.id, {
           name: areaName,
           icon: selectedIcon,
         });
-
         toast({
           title: <Text fontWeight="600">Área actualizada</Text>,
           description: `El área "${areaName}" se actualizó correctamente.`,
           status: "success",
-          duration: 3000,
+          position: "bottom",
           isClosable: true,
-          position: "bottom-center",
-          containerStyle: { borderRadius: themeOptions.borderRadius },
         });
       } else {
-        await addDoc(areasRef, {
+        await addArea({
           name: areaName,
           icon: selectedIcon,
           registeredAt: serverTimestamp(),
         });
-
         toast({
           title: <Text fontWeight="600">Área creada</Text>,
           description: `Se ha creado el área "${areaName}" correctamente.`,
           status: "success",
-          duration: 3000,
+          position: "bottom",
           isClosable: true,
-          position: "bottom-center",
-          containerStyle: { borderRadius: themeOptions.borderRadius },
         });
       }
 
@@ -114,13 +101,17 @@ const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
       onClose();
     } catch (error) {
       toast({
-        title: <Text fontWeight="600">Error al crear</Text>,
-        description: "No se pudo agregar el área. Inténtalo de nuevo.",
+        title: (
+          <Text fontWeight="600">
+            Error al {isEditing ? "actualizar" : "crear"}
+          </Text>
+        ),
+        description: `No se pudo ${
+          isEditing ? "actualizar" : "agregar"
+        } el área. Inténtalo de nuevo.`,
         status: "error",
-        duration: 3000,
         isClosable: true,
-        position: "bottom-center",
-        containerStyle: { borderRadius: themeOptions.borderRadius },
+        position: "bottom",
       });
     }
   };
@@ -144,7 +135,7 @@ const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
           bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
         >
           <ModalHeader p={4}>
-            {isEditing ? "Editar área" : "Crear nueva área"}
+            {isEditing ? "Editar " : "Crear "} área
           </ModalHeader>
           <ModalCloseButton
             top={2}
@@ -306,4 +297,4 @@ const ModalCreateArea = ({ isOpen, onClose, selectedArea }) => {
   );
 };
 
-export default ModalCreateArea;
+export default ModalArea;

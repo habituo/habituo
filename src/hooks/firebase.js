@@ -1,8 +1,10 @@
-import { initializeApp } from "firebase/app";
+// Imports
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage'; // Importa Firebase Storage
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
+// Secure configuration
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_API_KEY,
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,
@@ -12,13 +14,11 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_APP_ID,
 };
 
-// Start Firebase
-const app = initializeApp(firebaseConfig);
+// Start Firebase only if not starting yet
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Export services
+// Export services instances
 export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-
-export { collection, addDoc };
+export const googleProvider = new GoogleAuthProvider();

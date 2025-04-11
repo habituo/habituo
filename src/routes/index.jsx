@@ -8,8 +8,6 @@ export { default as AllHabits } from "../pages/dashboard/sections/AllHabits";
 export { default as Morning } from "../pages/dashboard/areas/Morning";
 export { default as Eveninig } from "../pages/dashboard/areas/Evening";
 export { default as Night } from "../pages/dashboard/areas/Night";
-export { default as ModalCreateArea } from "../pages/dashboard/sections/ModalCreateArea";
-export { default as ModalCreateHabitArea } from "../pages/dashboard/sections/ModalCreateHabitArea";
 export { default as AreaPage } from "../pages/dashboard/areas/AreaPage";
 export { default as HabitPage } from "../pages/dashboard/habits/HabitPage";
 
@@ -26,5 +24,9 @@ export { default as CustomThemePanel } from "../theme/CustomThemePanel";
 // Components
 export { default as Navbar } from "../components/Navbar";
 export { default as Footer } from "../components/Footer";
+export { default as AreaCard } from "../components/AreaCard";
+export { default as ConfirmationModal } from "../components/ConfirmationModal";
 export { default as ColumnHeader } from "../pages/dashboard/sections/ColumnHeader";
 export { default as LeftColumn } from "../pages/dashboard/sections/LeftColumn";
+export { default as ModalArea } from "../components/ModalArea";
+export { default as ModalHabit } from "../components/ModalHabit";

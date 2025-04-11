@@ -1,150 +1,167 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ColumnHeader, ModalCreateArea } from "../../../routes/index";
+import {
+  getAreasWithHabitCounts,
+  deleteAreaById,
+} from "../../../hooks/database";
+import {
+  ColumnHeader,
+  ModalArea,
+  AreaCard,
+  ConfirmationModal,
+} from "../../../routes/index";
 import {
   Grid,
-  HStack,
   VStack,
   Box,
   Text,
   Stack,
   Skeleton,
   Button,
-  LinkBox,
-  LinkOverlay,
   useDisclosure,
-  Heading,
   useColorMode,
-  Tooltip,
-  Menu,
-  MenuItem,
-  MenuList,
-  MenuButton,
-  IconButton,
-  SkeletonCircle,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
   useToast,
 } from "@chakra-ui/react";
 import { useTheme } from "../../../context/ThemeContext";
 import { FaPlus } from "react-icons/fa6";
-import { getAreas } from "../../../hooks/database";
 import { useAuth } from "../../../context/AuthContext";
-import * as LuIcons from "react-icons/lu";
-import { deleteDoc, doc, getDocs, collection } from "firebase/firestore";
-import { db } from "../../../hooks/firebase";
 
 const AllAreas = () => {
+  // Basic experience states
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [areas, setAreas] = useState([]);
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [areaToDelete, setAreaToDelete] = useState(null);
+
+  // Areas and Habits states
+  const [areas, setAreas] = useState([]);
   const [selectedArea, setSelectedArea] = useState(null);
-  const cancelRef = useRef();
+  const [areaToDelete, setAreaToDelete] = useState(null);
+  const [searchParams] = useSearchParams();
+  const {
+    isOpen: isDeleteOpen,
+    onOpen: openDeleteModal,
+    onClose: closeDeleteModal,
+  } = useDisclosure();
+  const {
+    isOpen: isModalAreaOpen,
+    onOpen: openModalArea,
+    onClose: closeModalArea,
+  } = useDisclosure();
 
   useEffect(() => {
-    if (!user) return;
+    /**
+     * @async
+     * @function fetchAreas
+     * @desc Fetches areas along with their habit counts and updates the state.
+     */
+    const fetchAreas = async () => {
+      try {
+        const areasData = await getAreasWithHabitCounts();
+        setAreas(areasData);
+      } catch (error) {
+        throw new Error("Error fetching areas:", error);
+      }
+    };
 
-    const unsubscribe = getAreas(async (areasList) => {
-      const updatedAreas = await Promise.all(
-        areasList.map(async (area) => {
-          const date = area.registeredAt ? area.registeredAt.toDate() : null;
-          const habitsRef = collection(
-            db,
-            `users/${user.uid}/areas/${area.id}/habits`
-          );
-          const habitsSnapshot = await getDocs(habitsRef);
-          const habitCount = habitsSnapshot.size;
+    fetchAreas();
 
-          return {
-            id: area.id,
-            name: area.name,
-            icon: area.icon || "LuFolder",
-            registeredAt: date,
-            habitCount,
-          };
-        })
-      );
-
-      setAreas(updatedAreas);
-      setIsLoaded(true);
-    });
-
-    return () => unsubscribe();
+    /** @desc Runs when the `user` dependency changes */
   }, [user]);
+
+  /**
+   * @function confirmDelete
+   * @desc Opens the confirmation modal and sets the area to be deleted.
+   * @param {Object} area - The area selected for deletion.
+   */
+  const confirmDelete = (area) => {
+    setAreaToDelete(area);
+    openDeleteModal();
+  };
+
+  /**
+   * @function handleEdit
+   * @desc Sets the selected area for editing and opens the edit modal.
+   * @param {Object} area - The area selected for editing.
+   */
+  const handleEdit = (area) => {
+    setSelectedArea(area);
+    openModalArea();
+  };
+
+  /**
+   * @async
+   * @function handleDelete
+   * @desc Deletes the selected area using its ID and updates the state.
+   */
+  const handleDelete = async () => {
+    if (!areaToDelete) return;
+
+    try {
+      await deleteAreaById(areaToDelete.id);
+      setAreas((prevAreas) =>
+        prevAreas.filter((a) => a.id !== areaToDelete.id)
+      );
+      closeDeleteModal();
+
+      // Show success toast notification
+      toast({
+        title: <Text fontWeight="600">Área eliminada</Text>,
+        description: `Se eliminó el área "${areaToDelete.name}" correctamente.`,
+        status: "success",
+        position: "bottom",
+        isClosable: true,
+      });
+    } catch (error) {
+      // Show error toast notification in case of failure
+      toast({
+        title: <Text fontWeight="600">Error al eliminar</Text>,
+        description: "No se pudo eliminar el área. Inténtalo de nuevo.",
+        status: "error",
+        position: "bottom",
+        isClosable: true,
+      });
+    }
+  };
 
   // Get order by URL
   const orderBy = searchParams.get("order_by") || "asc";
   const viewLayout = searchParams.get("layout") || "grid";
 
+  const sortFunctions = {
+    asc: (a, b) => a.name.localeCompare(b.name),
+    desc: (a, b) => b.name.localeCompare(a.name),
+    "last-creation": (a, b) =>
+      (a.registeredAt?.getTime() || 0) - (b.registeredAt?.getTime() || 0),
+    "new-creation": (a, b) =>
+      (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0),
+  };
+
+  const compareFunction = sortFunctions[orderBy] || (() => 0);
+
   // Get areas list
-  const sortedAreas = [...areas].sort((a, b) => {
-    if (orderBy === "asc") return a.name.localeCompare(b.name);
-    if (orderBy === "desc") return b.name.localeCompare(a.name);
-    if (orderBy === "last-creation")
-      return (
-        (a.registeredAt?.getTime() || 0) - (b.registeredAt?.getTime() || 0)
-      );
-    if (orderBy === "new-creation")
-      return (
-        (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0)
-      );
-    return 0;
-  });
+  const sortedAreas = [...areas].sort(compareFunction);
 
-  // Open confirmation modal
-  const confirmDelete = (area) => {
-    setAreaToDelete(area);
-    setIsDeleteOpen(true);
+  const layoutConfig = {
+    grid: {
+      display: "grid",
+      templateColumns: { base: "repeat(1, 1fr)", md: "repeat(3, 1fr)" },
+      gap: 3,
+      minH: "auto",
+      maxH: "auto",
+      overflowY: "none",
+    },
+    list: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 3,
+      minH: "calc(100vh - 90px)",
+      maxH: "calc(100vh - 90px)",
+      overflowY: "scroll",
+    },
   };
 
-  // Function to edit area selected
-  const handleEdit = (area) => {
-    setSelectedArea(area);
-    onOpen();
-  };
-
-  // Function to delete area selected
-  const handleDelete = async () => {
-    if (!areaToDelete) return;
-
-    try {
-      await deleteDoc(doc(db, `users/${user.uid}/areas/${areaToDelete.id}`));
-      setAreas((prevAreas) =>
-        prevAreas.filter((a) => a.id !== areaToDelete.id)
-      );
-      setIsDeleteOpen(false);
-      toast({
-        title: <Text fontWeight="600">Área eliminada</Text>,
-        description: `Se eliminó el área "${areaToDelete.name}" correctamente.`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom-center",
-        containerStyle: { borderRadius: themeOptions.borderRadius },
-      });
-    } catch (error) {
-      toast({
-        title: <Text fontWeight="600">Error al eliminar</Text>,
-        description: "No se pudo eliminar el área. Inténtalo de nuevo.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom-center",
-        containerStyle: { borderRadius: themeOptions.borderRadius },
-      });
-    }
-  };
+  const currentLayoutConfig = layoutConfig[viewLayout] || layoutConfig.grid;
 
   // Show content based on areas load
   const renderContent = () => {
@@ -152,16 +169,16 @@ const AllAreas = () => {
       return (
         <>
           <Grid
-            templateColumns={{
-              base: "repeat(1, 1fr)",
-              md: viewLayout === "grid" ? "repeat(3, 1fr)" : "repeat(1, 1fr)",
-            }}
-            gap={3}
+            as={currentLayoutConfig.display === "flex" ? "div" : "div"}
+            display={currentLayoutConfig.display}
+            templateColumns={currentLayoutConfig.templateColumns}
+            flexDirection={currentLayoutConfig.flexDirection}
+            gap={currentLayoutConfig.gap}
             w="100%"
-            minH={viewLayout === "grid" ? "auto" : "calc(100vh - 90px)"}
-            maxH={viewLayout === "grid" ? "auto" : "calc(100vh - 90px)"}
+            minH={currentLayoutConfig.minH}
+            maxH={currentLayoutConfig.maxH}
             userSelect="none"
-            overflowY={viewLayout === "grid" ? "none" : "scroll"}
+            overflowY={currentLayoutConfig.overflowY}
             sx={{
               "&::-webkit-scrollbar": {
                 width: "8px",
@@ -179,209 +196,29 @@ const AllAreas = () => {
               },
             }}
           >
-            {isLoaded ? (
-              sortedAreas.map((area) => {
-                const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
-                return (
-                  <LinkBox
-                    as="article"
-                    key={area.id}
-                    p={3}
-                    display="flex"
-                    flexDirection="column"
-                    alignItems="flex-start"
-                    gap={2}
-                    borderWidth="2px"
-                    borderRadius={themeOptions.borderRadius}
-                    w="100%"
-                    maxH="min-content"
-                    userSelect="none"
-                    cursor="pointer"
-                    transition=".1s all linear"
-                    bg={
-                      colorMode === "light"
-                        ? "rgb(255, 255, 255)"
-                        : "rgb(0, 0, 0)"
-                    }
-                    _hover={{
-                      bg:
-                        colorMode === "light"
-                          ? `var(--chakra-colors-${themeOptions.focusColor}-50)`
-                          : "var(--chakra-colors-blackAlpha-600)",
-                      borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-                    }}
-                  >
-                    <Box as="time" fontSize="sm" opacity={0.8}>
-                      {area.registeredAt
-                        ? `${area.registeredAt.toLocaleDateString("es-ES", {
-                            day: "2-digit",
-                          })} de ${area.registeredAt
-                            .toLocaleDateString("es-ES", { month: "long" })
-                            .replace(/^\w/, (c) =>
-                              c.toUpperCase()
-                            )} de ${area.registeredAt.getFullYear()}`
-                        : "Sin fecha de creación"}
-                    </Box>
-                    <HStack alignItems="center">
-                      <IconComponent size="20px" />
-                      <Heading
-                        fontFamily={themeOptions.fontFamily}
-                        fontSize="xl"
-                        fontWeight="600"
-                      >
-                        <LinkOverlay href={`/dashboard/areas/${area.id}`}>
-                          {area.name}
-                        </LinkOverlay>
-                      </Heading>
-                    </HStack>
-                    <Text fontSize="sm" fontWeight="400" opacity={0.8}>
-                      {area.habitCount}{" "}
-                      {area.habitCount === 1 ? "hábito" : "hábitos"}
-                    </Text>
-                    <Tooltip
-                      label="Opciones"
-                      aria-label="Tooltip"
-                      borderRadius={themeOptions.borderRadius}
-                      bg={
-                        colorMode === "light"
-                          ? "rgb(255, 255, 255)"
-                          : "rgb(0, 0, 0)"
-                      }
-                      color={
-                        colorMode === "light"
-                          ? "rgb(0, 0, 0)"
-                          : "rgb(255, 255, 255)"
-                      }
-                    >
-                      <Menu>
-                        <MenuButton
-                          as={IconButton}
-                          aria-label="Options"
-                          icon={<LuIcons.LuEllipsisVertical />}
-                          position="absolute"
-                          right={1}
-                          top={1}
-                          fontSize="lg"
-                          bg="transparent"
-                          size="sm"
-                          borderRadius={themeOptions.borderRadius}
-                        />
-                        <MenuList
-                          m={0}
-                          p={0}
-                          minW="auto"
-                          borderRadius={themeOptions.borderRadius}
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                        >
-                          <MenuItem
-                            icon={<LuIcons.LuPenLine size={16} />}
-                            borderTopRadius={themeOptions.borderRadius}
-                            bg={
-                              colorMode === "light"
-                                ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
-                            }
-                            _hover={{
-                              bg:
-                                colorMode === "light"
-                                  ? "rgb(237 242 247)"
-                                  : "rgba(255, 255, 255, 0.06)",
-                            }}
-                            onClick={() => handleEdit(area)}
-                          >
-                            Editar
-                          </MenuItem>
-                          <MenuItem
-                            icon={<LuIcons.LuTrash size={16} />}
-                            borderBottomRadius={themeOptions.borderRadius}
-                            bg={
-                              colorMode === "light"
-                                ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
-                            }
-                            _hover={{
-                              bg:
-                                colorMode === "light"
-                                  ? "rgb(237 242 247)"
-                                  : "rgba(255, 255, 255, 0.06)",
-                            }}
-                            onClick={() => confirmDelete(area)}
-                          >
-                            Eliminar
-                          </MenuItem>
-                        </MenuList>
-                      </Menu>
-                    </Tooltip>
-                  </LinkBox>
-                );
-              })
-            ) : (
-              <LinkBox
-                as="article"
-                p={3}
-                pb={1}
-                borderWidth="2px"
-                borderRadius={themeOptions.borderRadius}
-                w="100%"
-                maxH="min-content"
-                userSelect="none"
-                bg={
-                  colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"
-                }
-              >
-                <Skeleton w="40%" height="10px" />
-                <HStack my={2}>
-                  <SkeletonCircle size="6" />
-                  <Skeleton w="50%" height="20px" />
-                </HStack>
-              </LinkBox>
-            )}
+            {sortedAreas.map((area) => (
+              <AreaCard
+                key={area.id}
+                area={area}
+                handleEdit={handleEdit}
+                confirmDelete={confirmDelete}
+              />
+            ))}
           </Grid>
-          <AlertDialog
+          <ConfirmationModal
             isOpen={isDeleteOpen}
-            leastDestructiveRef={cancelRef}
-            onClose={() => setIsDeleteOpen(false)}
-          >
-            <AlertDialogOverlay>
-              <AlertDialogContent
-                borderRadius={themeOptions.borderRadius}
-                bg={
-                  colorMode === "light"
-                    ? "rgb(245, 245, 245)"
-                    : "rgb(23, 23, 23)"
-                }
-              >
-                <AlertDialogHeader p={4} fontSize="lg" fontWeight="600">
-                  ¿Deseas eliminar el área: {areaToDelete?.name}?
-                </AlertDialogHeader>
-                <AlertDialogBody px={4}>
-                  <Text fontSize="md">
-                    Perderás todos los hábitos que contenga dicho área y sus
-                    progresos. Esta acción no se puede deshacer.</Text>
-                </AlertDialogBody>
-                <AlertDialogFooter p={4}>
-                  <Button
-                    ref={cancelRef}
-                    onClick={() => setIsDeleteOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button colorScheme="red" onClick={handleDelete} ml={3}>
-                    Eliminar
-                  </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialogOverlay>
-          </AlertDialog>
-          <ModalCreateArea
-            isOpen={isOpen}
+            onClose={closeDeleteModal}
+            title={`¿Deseas eliminar el área: ${areaToDelete?.name}?`}
+            description="Perderás todos los hábitos que contenga dicho área y sus progresos. Esta acción no se puede deshacer."
+            onConfirm={handleDelete}
+            confirmButtonText="Sí, eliminar"
+            cancelButtonText="No, cancelar"
+          />
+          <ModalArea
+            isOpen={isModalAreaOpen}
             onClose={() => {
               setSelectedArea(null);
-              onClose();
+              closeModalArea();
             }}
             selectedArea={selectedArea}
           />
@@ -427,11 +264,11 @@ const AllAreas = () => {
             variant="ghost"
             leftIcon={<FaPlus size="16px" />}
             iconSpacing={1}
-            onClick={onOpen}
+            onClick={openModalArea}
           >
             Añadir una área
           </Button>
-          <ModalCreateArea isOpen={isOpen} onClose={onClose} />
+          <ModalArea isOpen={isModalAreaOpen} onClose={closeModalArea} />
         </VStack>
       );
     }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { ModalCreateHabitArea } from "../../../routes/index";
 import {
   Grid,
   HStack,
@@ -8,17 +7,12 @@ import {
   Text,
   Stack,
   Skeleton,
-  Button,
-  LinkBox,
-  LinkOverlay,
-  IconButton,
   useColorMode,
   Stat,
   StatLabel,
   StatNumber,
   StatHelpText,
   StatArrow,
-  StatGroup,
   Tabs,
   TabList,
   TabPanels,
@@ -34,7 +28,6 @@ import { db } from "../../../hooks/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import BarChart from "../../../components/charts/BarChart";
 import HeatMap from "../../../components/charts/HeatMap";
-import customTheme from "../../../theme/theme";
 
 const replaceCalendarIcons = () => {
   const prev2Button = document.querySelector(
@@ -76,7 +69,7 @@ const replaceCalendarIcons = () => {
   }
 };
 
-const HabitPage = ({ habit, fetchHabits }) => {
+const HabitPage = ({ habit }) => {
   const { colorMode } = useColorMode();
   const [isLoaded, setIsLoaded] = useState(false);
   const { themeOptions } = useTheme();
@@ -296,7 +289,7 @@ const HabitPage = ({ habit, fetchHabits }) => {
       minH="100vh"
       maxH="100vh"
       bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
-      p={2}
+      pt={2}
       userSelect="none"
       overflowY="scroll"
       sx={{

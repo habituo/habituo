@@ -1,126 +1,189 @@
 import { db, auth } from "./firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, getDocs } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 /**
- * Retrieves all areas for the authenticated user in real-time.
- * @param {Function} callback - Function to handle the retrieved areas.
- * @throws {Error} If the user is not authenticated.
- * @returns {Function} Firestore unsubscribe function.
+ * Helper function to get user ID or throw an error if not authenticated.
  */
+const getUserId = () => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+    return user.uid;
+};
+
 export const getAreas = (callback) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
+    const userId = getUserId();
+    const areasRef = collection(db, `users/${userId}/areas`);
 
-    return onSnapshot(collection(db, `users/${user.uid}/areas`), (snapshot) => {
-        const areas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        callback(areas);
+    return onSnapshot(areasRef, (areasSnapshot) => {
+        const areasData = areasSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            registeredAt: doc.data().registeredAt ? doc.data().registeredAt.toDate() : null,
+        }));
+        callback(areasData);
     });
 };
 
 /**
- * Retrieves all habits within a specific area for the authenticated user in real-time.
- * @param {string} areaId - The ID of the area.
- * @param {Function} callback - Function to handle the retrieved habits.
- * @throws {Error} If the user is not authenticated or areaId is not provided.
+ * Retrieves all areas and their habits for the authenticated user in real-time.
+ * @param {Function} callback - Function to handle the retrieved data.
  * @returns {Function} Firestore unsubscribe function.
  */
-export const getHabits = (areaId, callback) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-    if (!areaId) throw new Error("Area ID is required");
+export const getAllHabitsByArea = (callback) => {
+    const userId = getUserId();
+    const areasRef = collection(db, `users/${userId}/areas`);
 
-    return onSnapshot(collection(db, `users/${user.uid}/areas/${areaId}/habits`), (snapshot) => {
-        const habits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        callback(habits);
+    return onSnapshot(areasRef, async (areasSnapshot) => {
+        const areasData = await Promise.all(
+            areasSnapshot.docs.map(async (areaDoc) => {
+                const area = { id: areaDoc.id, ...areaDoc.data() };
+                const habitsRef = collection(db, `users/${userId}/areas/${area.id}/habits`);
+                const habitsSnapshot = await getDocs(habitsRef);
+                const habits = habitsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+                return { ...area, habits };
+            })
+        );
+
+        callback(areasData);
     });
 };
 
-/**
- * Adds a new area for the authenticated user.
- * @param {Object} areaData - The data of the area to be added.
- * @throws {Error} If the user is not authenticated.
- * @returns {Promise<DocumentReference>} A promise that resolves with the added document reference.
- */
-export const addArea = async (areaData) => {
+export const getAreasWithHabitCounts = async () => {
     const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
+    if (!user) { return [] };
 
-    return await addDoc(collection(db, `users/${user.uid}/areas`), areaData);
+    const userId = user.uid;
+    const areasRef = collection(db, `users/${userId}/areas`);
+    const areasSnapshot = await getDocs(areasRef);
+
+    const areasList = areasSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        registeredAt: doc.data().registeredAt ? doc.data().registeredAt.toDate() : null,
+    }));
+
+    const updatedAreas = await Promise.all(
+        areasList.map(async (area) => {
+            const habitsRef = collection(db, `users/${userId}/areas/${area.id}/habits`);
+            const habitsSnapshot = await getDocs(habitsRef);
+            const habitCount = habitsSnapshot.size;
+
+            return {
+                ...area,
+                icon: area.icon || "LuFolder",
+                habitCount,
+            };
+        })
+    );
+
+    return updatedAreas;
+};
+
+export const deleteAreaById = async (areaId) => {
+    const user = auth.currentUser;
+    if (!user) {
+        throw new Error("User not authenticated");
+    }
+
+    try {
+        await deleteDoc(doc(db, `users/${user.uid}/areas/${areaId}`));
+    } catch (error) {
+        console.error("Error deleting area:", error);
+        throw error; // Re-lanza el error para que AllAreas.jsx lo maneje
+    }
+};
+
+export const updateAreaById = async (areaId, areaData) => {
+    const user = auth.currentUser;
+    if (!user) {
+        throw new Error("User not authenticated");
+    }
+    try {
+        const areaDoc = doc(db, `users/${user.uid}/areas/${areaId}`);
+        await updateDoc(areaDoc, areaData);
+    } catch (error) {
+        throw new Error("Error updating area:", error);
+    }
+};
+
+export const fetchUserDataFromFirestore = async (userId) => {
+    if (!userId) return null;
+    try {
+        const userRef = doc(db, "users", userId);
+        const userSnap = await getDoc(userRef);
+        return userSnap.exists() ? userSnap.data() : null;
+    } catch (error) {
+        console.error("Error al obtener los datos del usuario:", error);
+        return null;
+    }
+};
+
+export const updateUserData = async (userId, data, toast) => {
+    if (!userId) throw new Error("User ID cannot be empty.");
+    try {
+        const userRef = doc(db, "users", userId);
+        await updateDoc(userRef, data);
+    } catch (error) {
+        toast({
+            title: "Error al actualizar el usuario",
+            description: error,
+            status: "error",
+            position: "bottom",
+        });
+        throw error;
+    }
 };
 
 /**
- * Adds a new habit within a specific area for the authenticated user.
- * @param {string} areaId - The ID of the area.
- * @param {Object} habitData - The data of the habit to be added.
- * @throws {Error} If the user is not authenticated or areaId is not provided.
- * @returns {Promise<DocumentReference>} A promise that resolves with the added document reference.
+ * Adds a new document to a specified collection.
  */
-export const addHabit = async (areaId, habitData) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-    if (!areaId) throw new Error("Area ID is required");
-
-    return await addDoc(collection(db, `users/${user.uid}/areas/${areaId}/habits`), habitData);
-};
+const addDocument = async (path, data) => await addDoc(collection(db, path), data);
 
 /**
- * Updates an existing area for the authenticated user.
- * @param {string} id - The ID of the area to update.
- * @param {Object} areaData - The updated data for the area.
- * @throws {Error} If the user is not authenticated.
- * @returns {Promise<void>} A promise that resolves when the update is complete.
+ * Updates an existing document.
  */
-export const updateArea = async (id, areaData) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-
-    const areaRef = doc(db, `users/${user.uid}/areas`, id);
-    return await updateDoc(areaRef, areaData);
-};
+const updateDocument = async (path, id, data) => await updateDoc(doc(db, path, id), data);
 
 /**
- * Updates an existing habit within a specific area for the authenticated user.
- * @param {string} areaId - The ID of the area.
- * @param {string} id - The ID of the habit to update.
- * @param {Object} habitData - The updated data for the habit.
- * @throws {Error} If the user is not authenticated or areaId is not provided.
- * @returns {Promise<void>} A promise that resolves when the update is complete.
+ * Deletes an existing document.
  */
-export const updateHabit = async (areaId, id, habitData) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-    if (!areaId) throw new Error("Area ID is required");
-
-    const habitRef = doc(db, `users/${user.uid}/areas/${areaId}/habits`, id);
-    return await updateDoc(habitRef, habitData);
-};
+const deleteDocument = async (path, id) => await deleteDoc(doc(db, path, id));
 
 /**
- * Deletes an existing area for the authenticated user.
- * @param {string} id - The ID of the area to delete.
- * @throws {Error} If the user is not authenticated.
- * @returns {Promise<void>} A promise that resolves when the deletion is complete.
+ * CRUD Operations for Areas.
  */
-export const deleteArea = async (id) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-
-    const areaRef = doc(db, `users/${user.uid}/areas`, id);
-    return await deleteDoc(areaRef);
-};
+export const addArea = (areaData) => addDocument(`users/${getUserId()}/areas`, areaData);
+export const updateArea = (id, areaData) => updateDocument(`users/${getUserId()}/areas`, id, areaData);
+export const deleteArea = (id) => deleteDocument(`users/${getUserId()}/areas`, id);
 
 /**
- * Deletes an existing habit within a specific area for the authenticated user.
- * @param {string} areaId - The ID of the area.
- * @param {string} id - The ID of the habit to delete.
- * @throws {Error} If the user is not authenticated or areaId is not provided.
- * @returns {Promise<void>} A promise that resolves when the deletion is complete.
+ * CRUD Operations for Habits.
  */
-export const deleteHabit = async (areaId, id) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
-    if (!areaId) throw new Error("Area ID is required");
+export const addHabit = (areaId, habitData) => addDocument(`users/${getUserId()}/areas/${areaId}/habits`, habitData);
+export const updateHabit = (areaId, id, habitData) => updateDocument(`users/${getUserId()}/areas/${areaId}/habits`, id, habitData);
+export const deleteHabit = (areaId, id) => deleteDocument(`users/${getUserId()}/areas/${areaId}/habits`, id);
 
-    const habitRef = doc(db, `users/${user.uid}/areas/${areaId}/habits`, id);
-    return await deleteDoc(habitRef);
+/**
+ * Logs out the current user.
+ * @param {Function} toast - The toast function from Chakra UI to display messages.
+ */
+export const logoutUser = async (toast) => {
+    try {
+        await signOut(auth);
+        toast({
+            title: "Sesión cerrada",
+            description: "Has cerrado sesión exitosamente.",
+            status: "success",
+            position: "bottom",
+        });
+        window.location.href = "/";
+    } catch (error) {
+        toast({
+            title: "Error al cerrar sesión",
+            description: error.message,
+            status: "error",
+            position: "bottom",
+        });
+    }
 };

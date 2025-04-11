@@ -44,47 +44,42 @@ const ColorRadioCard = (props) => {
   const checkbox = getRadioProps(); // Gets the props to style the radio as a custom component.
 
   return (
-      <ChakraProvider
-        theme={customTheme(
-          themeOptions.focusColor,
-          themeOptions.fontFamily,
-          themeOptions.borderRadius
-        )}
-      >
-        <Box as="label">
-          <input {...input} />
-          <HStack
-            {...checkbox}
-            width="100%"
-            cursor="pointer"
-            borderWidth="1px"
-            borderRadius="base"
-            px={3}
-            py={2}
-            pe={0}
-            spacing={2}
-            _checked={{
-              borderColor: `${props.value}.500`, // Highlight the selected color.
-              boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
-            }}
-          >
-            <Box
-              w="12px"
-              h="12px"
-              bg={`${props.value}.500`}
-              borderRadius="full"
-            ></Box>
-            <Text
-              as="span"
-              fontSize="sm"
-              fontWeight="medium"
-              whiteSpace="nowrap"
-            >
-              {props.label}
-            </Text>
-          </HStack>
-        </Box>
-      </ChakraProvider>
+    <ChakraProvider
+      theme={customTheme(
+        themeOptions.focusColor,
+        themeOptions.fontFamily,
+        themeOptions.borderRadius
+      )}
+    >
+      <Box as="label">
+        <input {...input} />
+        <HStack
+          {...checkbox}
+          width="100%"
+          cursor="pointer"
+          borderWidth="1px"
+          borderRadius="base"
+          px={3}
+          py={2}
+          pe={0}
+          spacing={2}
+          _checked={{
+            borderColor: `${props.value}.500`, // Highlight the selected color.
+            boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
+          }}
+        >
+          <Box
+            w="12px"
+            h="12px"
+            bg={`${props.value}.500`}
+            borderRadius="full"
+          ></Box>
+          <Text as="span" fontSize="sm" fontWeight="medium" whiteSpace="nowrap">
+            {props.label}
+          </Text>
+        </HStack>
+      </Box>
+    </ChakraProvider>
   );
 };
 
@@ -249,6 +244,7 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
   return (
     <>
       <Button
+        as={Button}
         px={3}
         w="100%"
         display="flex"

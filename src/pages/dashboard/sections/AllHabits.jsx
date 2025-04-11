@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useParams } from "react-router-dom";
-import { ColumnHeader, ModalCreateHabitArea } from "../../../routes/index";
+import { getAllHabitsByArea } from "../../../hooks/database";
+import { auth } from "../../../hooks/firebase";
+import { ColumnHeader, ModalHabit } from "../../../routes/index";
 import {
   VStack,
   Box,
@@ -62,39 +64,50 @@ const AllHabits = ({ setSelectedHabit }) => {
   const [habitToDelete, setHabitToDelete] = useState(null);
   const cancelRef = useRef();
 
+  // useEffect(() => {
+  //   if (!user) return;
+  //   const userId = user.uid;
+  //   const areasRef = collection(db, `users/${userId}/areas`);
+
+  //   const unsubscribeAreas = onSnapshot(areasRef, async (areasSnapshot) => {
+  //     const areasData = [];
+
+  //     for (const areaDoc of areasSnapshot.docs) {
+  //       const area = { id: areaDoc.id, ...areaDoc.data() };
+  //       const habitsRef = collection(
+  //         db,
+  //         `users/${userId}/areas/${area.id}/habits`
+  //       );
+
+  //       const unsubscribeHabits = onSnapshot(habitsRef, (habitsSnapshot) => {
+  //         const habits = habitsSnapshot.docs.map((doc) => ({
+  //           id: doc.id,
+  //           ...doc.data(),
+  //         }));
+
+  //         areasData.push({ ...area, habits });
+
+  //         if (areasData.length === areasSnapshot.docs.length) {
+  //           setHabitsByArea(areasData);
+  //           setIsLoaded(true);
+  //         }
+  //       });
+  //     }
+  //   });
+
+  //   return () => unsubscribeAreas();
+  // }, [user]);
+
   useEffect(() => {
-    if (!user) return;
-    const userId = user.uid;
-    const areasRef = collection(db, `users/${userId}/areas`);
+    if (!auth.currentUser) return;
 
-    const unsubscribeAreas = onSnapshot(areasRef, async (areasSnapshot) => {
-      const areasData = [];
-
-      for (const areaDoc of areasSnapshot.docs) {
-        const area = { id: areaDoc.id, ...areaDoc.data() };
-        const habitsRef = collection(
-          db,
-          `users/${userId}/areas/${area.id}/habits`
-        );
-
-        const unsubscribeHabits = onSnapshot(habitsRef, (habitsSnapshot) => {
-          const habits = habitsSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          areasData.push({ ...area, habits });
-
-          if (areasData.length === areasSnapshot.docs.length) {
-            setHabitsByArea(areasData);
-            setIsLoaded(true);
-          }
-        });
-      }
+    const unsubscribe = getAllHabitsByArea((areasData) => {
+        setHabitsByArea(areasData);
+        setIsLoaded(true);
     });
 
-    return () => unsubscribeAreas();
-  }, [user]);
+    return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     const interval = setInterval(checkFailedHabits, 60 * 60 * 1000);
@@ -595,7 +608,7 @@ const AllHabits = ({ setSelectedHabit }) => {
             ))}
           </Box>
 
-          <ModalCreateHabitArea
+          <ModalHabit
             isOpen={isOpen}
             onClose={() => {
               setSelectedHabit(null);

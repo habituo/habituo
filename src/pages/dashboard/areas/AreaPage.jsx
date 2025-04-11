@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ColumnHeader, ModalCreateHabitArea } from "../../../routes/index";
+import { ColumnHeader, ModalHabit } from "../../../routes/index";
 import {
   Grid,
   HStack,
@@ -433,7 +433,7 @@ const AreaPage = ({ areas, fetchHabits, user, toast }) => {
             </HStack>
           )}
         </LinkBox>
-        <ModalCreateHabitArea
+        <ModalHabit
           isOpen={isOpen}
           onClose={() => {
             setSelectedHabit(null);
@@ -557,7 +557,7 @@ const AreaPage = ({ areas, fetchHabits, user, toast }) => {
           >
             Añadir una hábito
           </Button>
-          <ModalCreateHabitArea isOpen={isOpen} onClose={onClose} />
+          <ModalHabit isOpen={isOpen} onClose={onClose} />
         </VStack>
       );
     }
