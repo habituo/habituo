@@ -18,17 +18,24 @@ import {
 import * as LuIcons from "react-icons/lu";
 import { useTheme } from "../context/ThemeContext";
 
-const AreaCard = ({ area, handleEdit, confirmDelete }) => {
+const HabitCard = ({
+  habit,
+  setSelectedHabit,
+  handleComplete,
+  handleSkip,
+  handleEdit,
+  confirmDelete,
+}) => {
   // Basic experience states
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
-  const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
+  const IconComponent = LuIcons[habit.icon] || LuIcons.LuFolder;
 
   return (
     <>
-      {area ? (
+      {habit ? (
         <LinkBox
-          key={area.id}
+          key={habit.id}
           p={3}
           display="flex"
           flexDirection="column"
@@ -41,6 +48,9 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
           userSelect="none"
           cursor="pointer"
           transition=".1s all linear"
+          onClick={() => {
+            setSelectedHabit(habit);
+          }}
           bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
           _hover={{
             bg:
@@ -55,14 +65,15 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
             fontSize="sm"
             color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
           >
-            {area.registeredAt
-              ? `${area.registeredAt.toLocaleDateString("es-ES", {
+            {habit.createdAt
+              ? `${habit.createdAt.toDate().toLocaleDateString("es-ES", {
                   day: "2-digit",
-                })} de ${area.registeredAt
+                })} de ${habit.createdAt
+                  .toDate()
                   .toLocaleDateString("es-ES", { month: "long" })
-                  .replace(/^\w/, (c) =>
-                    c.toUpperCase()
-                  )} de ${area.registeredAt.getFullYear()}`
+                  .replace(/^\w/, (c) => c.toUpperCase())} de ${habit.createdAt
+                  .toDate()
+                  .getFullYear()}`
               : "Sin fecha de creación"}
           </Box>
           <HStack alignItems="center">
@@ -72,13 +83,20 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
               fontSize="xl"
               fontWeight="600"
             >
-              <LinkOverlay href={`/dashboard/areas/${area.id}`}>
-                {area.name}
-              </LinkOverlay>
+              <LinkOverlay>{habit.name}</LinkOverlay>
             </Text>
           </HStack>
-          <Text fontSize="sm" fontWeight="400" opacity={0.8}>
-            {area.habitCount} {area.habitCount === 1 ? "hábito" : "hábitos"}
+          <Text
+            fontSize="sm"
+            fontWeight="400"
+            color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+          >
+            {habit.goal.period === "day"
+              ? "Todos los días "
+              : "week"
+              ? "Todas las semanas  "
+              : "Todos los meses "}
+            a las {habit.reminder ? habit.reminder : "--:--"}h
           </Text>
           <Tooltip
             label="Opciones"
@@ -112,7 +130,7 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
                 }
               >
                 <MenuItem
-                  icon={<LuIcons.LuPenLine size={16} />}
+                  icon={<LuIcons.LuCheck size={16} />}
                   borderTopRadius={themeOptions.borderRadius}
                   bg={
                     colorMode === "light" ? "var(--menu-bg)" : "rgb(23, 23, 23)"
@@ -123,7 +141,37 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
                         ? "rgb(237 242 247)"
                         : "rgba(255, 255, 255, 0.06)",
                   }}
-                  onClick={() => handleEdit(area)}
+                  onClick={() => handleComplete(habit)}
+                >
+                  Completar
+                </MenuItem>
+                <MenuItem
+                  icon={<LuIcons.LuArrowRight size={16} />}
+                  bg={
+                    colorMode === "light" ? "var(--menu-bg)" : "rgb(23, 23, 23)"
+                  }
+                  _hover={{
+                    bg:
+                      colorMode === "light"
+                        ? "rgb(237 242 247)"
+                        : "rgba(255, 255, 255, 0.06)",
+                  }}
+                  onClick={() => handleSkip(habit)}
+                >
+                  Saltar
+                </MenuItem>
+                <MenuItem
+                  icon={<LuIcons.LuPenLine size={16} />}
+                  bg={
+                    colorMode === "light" ? "var(--menu-bg)" : "rgb(23, 23, 23)"
+                  }
+                  _hover={{
+                    bg:
+                      colorMode === "light"
+                        ? "rgb(237 242 247)"
+                        : "rgba(255, 255, 255, 0.06)",
+                  }}
+                  onClick={() => handleEdit(habit)}
                 >
                   Editar
                 </MenuItem>
@@ -139,7 +187,7 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
                         ? "rgb(237 242 247)"
                         : "rgba(255, 255, 255, 0.06)",
                   }}
-                  onClick={() => confirmDelete(area)}
+                  onClick={() => confirmDelete(habit)}
                 >
                   Eliminar
                 </MenuItem>
@@ -173,4 +221,4 @@ const AreaCard = ({ area, handleEdit, confirmDelete }) => {
   );
 };
 
-export default AreaCard;
+export default HabitCard;

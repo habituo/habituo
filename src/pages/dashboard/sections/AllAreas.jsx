@@ -9,26 +9,21 @@ import {
   ModalArea,
   AreaCard,
   ConfirmationModal,
+  NoDataPage,
 } from "../../../routes/index";
 import {
-  Grid,
-  VStack,
+  SimpleGrid,
   Box,
   Text,
-  Stack,
-  Skeleton,
-  Button,
   useDisclosure,
   useColorMode,
   useToast,
+  VStack,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../context/ThemeContext";
-import { FaPlus } from "react-icons/fa6";
 import { useAuth } from "../../../context/AuthContext";
 
 const AllAreas = () => {
   // Basic experience states
-  const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const { user } = useAuth();
   const toast = useToast();
@@ -124,77 +119,31 @@ const AllAreas = () => {
     }
   };
 
-  // Get order by URL
   const orderBy = searchParams.get("order_by") || "asc";
   const viewLayout = searchParams.get("layout") || "grid";
 
-  const sortFunctions = {
-    asc: (a, b) => a.name.localeCompare(b.name),
-    desc: (a, b) => b.name.localeCompare(a.name),
-    "last-creation": (a, b) =>
-      (a.registeredAt?.getTime() || 0) - (b.registeredAt?.getTime() || 0),
-    "new-creation": (a, b) =>
-      (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0),
-  };
+  const sortedAreas = [...areas].sort((a, b) => {
+    if (orderBy === "asc") return a.name.localeCompare(b.name);
+    if (orderBy === "desc") return b.name.localeCompare(a.name);
+    return 0;
+  });
 
-  const compareFunction = sortFunctions[orderBy] || (() => 0);
-
-  // Get areas list
-  const sortedAreas = [...areas].sort(compareFunction);
-
-  const layoutConfig = {
-    grid: {
-      display: "grid",
-      templateColumns: { base: "repeat(1, 1fr)", md: "repeat(3, 1fr)" },
-      gap: 3,
-      minH: "auto",
-      maxH: "auto",
-      overflowY: "none",
-    },
-    list: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 3,
-      minH: "calc(100vh - 90px)",
-      maxH: "calc(100vh - 90px)",
-      overflowY: "scroll",
-    },
-  };
-
-  const currentLayoutConfig = layoutConfig[viewLayout] || layoutConfig.grid;
-
-  // Show content based on areas load
-  const renderContent = () => {
-    if (areas.length > 0) {
-      return (
-        <>
-          <Grid
-            as={currentLayoutConfig.display === "flex" ? "div" : "div"}
-            display={currentLayoutConfig.display}
-            templateColumns={currentLayoutConfig.templateColumns}
-            flexDirection={currentLayoutConfig.flexDirection}
-            gap={currentLayoutConfig.gap}
-            w="100%"
-            minH={currentLayoutConfig.minH}
-            maxH={currentLayoutConfig.maxH}
-            userSelect="none"
-            overflowY={currentLayoutConfig.overflowY}
-            sx={{
-              "&::-webkit-scrollbar": {
-                width: "8px",
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-                borderRadius: "4px",
-              },
-              "&::-webkit-scrollbar-thumb:hover": {
-                backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-              },
-              "&::-webkit-scrollbar-track": {
-                backgroundColor: "transparent",
-                borderRadius: "4px",
-              },
+  return (
+    <Box
+      w="100%"
+      minH="100vh"
+      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+    >
+      <ColumnHeader page="all-areas" title="Todas las áreas" />
+      {areas.length > 0 ? (
+        <VStack p={4} align="stretch">
+          <SimpleGrid
+            columns={{
+              base: 1,
+              md: viewLayout === "grid" ? 2 : 1,
+              lg: viewLayout === "grid" ? 3 : 1,
             }}
+            spacing={4}
           >
             {sortedAreas.map((area) => (
               <AreaCard
@@ -204,7 +153,7 @@ const AllAreas = () => {
                 confirmDelete={confirmDelete}
               />
             ))}
-          </Grid>
+          </SimpleGrid>
           <ConfirmationModal
             isOpen={isDeleteOpen}
             onClose={closeDeleteModal}
@@ -222,66 +171,10 @@ const AllAreas = () => {
             }}
             selectedArea={selectedArea}
           />
-        </>
-      );
-    } else {
-      return (
-        <VStack
-          w="100%"
-          h={`calc(100vh - 90px)`}
-          alignItems="center"
-          justifyContent="center"
-          userSelect="none"
-        >
-          <Stack mb={2} borderRadius={themeOptions.borderRadius}>
-            <Skeleton
-              w="200px"
-              h="40px"
-              borderRadius={themeOptions.borderRadius}
-            />
-            <Skeleton
-              w="200px"
-              h="40px"
-              borderRadius={themeOptions.borderRadius}
-            />
-            <Skeleton
-              w="200px"
-              h="40px"
-              borderRadius={themeOptions.borderRadius}
-            />
-          </Stack>
-          <Text as="h2" fontSize="xl" fontWeight="600">
-            Da el paso y construye tu mejor versión
-          </Text>
-          <Text as="h2" fontSize="sm" maxW="600px" textAlign="center">
-            Los hábitos son como los escalones de una escalera: al dar el primer
-            paso, el resto se va sumando uno a uno.
-          </Text>
-          <Button
-            ps={3}
-            mt={2}
-            colorScheme={themeOptions.focusColor}
-            variant="ghost"
-            leftIcon={<FaPlus size="16px" />}
-            iconSpacing={1}
-            onClick={openModalArea}
-          >
-            Añadir una área
-          </Button>
-          <ModalArea isOpen={isModalAreaOpen} onClose={closeModalArea} />
         </VStack>
-      );
-    }
-  };
-
-  return (
-    <Box
-      w="100%"
-      minH="100vh"
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
-    >
-      <ColumnHeader page="all-areas" title="Todas las áreas" />
-      <Box p={3}>{renderContent()}</Box>
+      ) : (
+        <NoDataPage type="areas" />
+      )}
     </Box>
   );
 };

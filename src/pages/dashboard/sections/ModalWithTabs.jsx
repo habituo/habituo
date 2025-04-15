@@ -36,11 +36,10 @@ import {
 import { useTheme } from "../../../context/ThemeContext";
 import gLogo from "../../../assets/images/icons/g-icon.webp";
 import mailLogo from "../../../assets/images/icons/mail.svg";
-import { LuMoon, LuSun } from "react-icons/lu";
 import * as LuIcons from "react-icons/lu";
 import DeleteAccountButton from "./DeleteAccount";
-import { getAuth, signOut } from "firebase/auth";
-import { updateUserData } from "../../../hooks/database";
+import { getAuth } from "firebase/auth";
+import { updateUserData, logoutUser } from "../../../hooks/database";
 import { TbBrandPatreon } from "react-icons/tb";
 
 // ModalWithTabs component: Displays a modal with tabs for account settings and general settings.
@@ -64,33 +63,64 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
   const user = auth.currentUser;
   const toast = useToast();
 
-  // Function to handle tab change when user clicks on a tab
+  /**
+   * Handles the tab change event when a user clicks on a tab in a UI component.
+   * @function handleTabChange
+   * @param {number} index - The index of the tab that was clicked. This index typically corresponds to the position of the tab in the tab list (e.g., 0 for the first tab, 1 for the second, etc.).
+   * @returns {void} This function updates the component's state.
+   */
   const handleTabChange = (index) => {
     setActiveTab(index);
   };
 
-  // Function to handle first day of a week change when user clicks on a select
+  /**
+   * Handles the change event when a user selects a new first day of the week from a select input.
+   * @function handleDayChange
+   * @param {string} value - The value of the selected first day of the week (e.g., 'monday', 'sunday'). This value should correspond to one of the keys in the `valueToLabel` object or a similar data structure.
+   * @returns {void} This function updates the component's state.
+   */
   const handleDayChange = (value) => {
     setSelectedValue(value);
   };
 
-  // Function to handle language change when user clicks on a select
+  /**
+   * Handles the change event when a user selects a new language from a select input.
+   * @function handleLangChange
+   * @param {string} value - The code of the selected language (e.g., 'esp' for Spanish, 'eng' for English).
+   * @returns {void} This function updates the component's state.
+   */
   const handleLangChange = (value) => {
     setSelectedLang(value);
   };
 
-  // Days of week
+  /**
+   * An object mapping the values used for the first day of the week in a select input to their human-readable labels in Spanish.
+   * @constant {object} valueToLabel
+   * @property {string} monday - The label for Monday ('Lunes').
+   * @property {string} sunday - The label for Sunday ('Domingo').
+   */
   const valueToLabel = {
     monday: "Lunes",
     sunday: "Domingo",
   };
 
-  // Languages list
+  /**
+   * An object mapping language codes to their human-readable labels in Spanish.
+   * @constant {object} langToLabel
+   * @property {string} esp - The label for Spanish ('Español').
+   * @property {string} eng - The label for English ('Inglés').
+   */
   const langToLabel = {
     esp: "Español",
     eng: "Inglés",
   };
 
+  /**
+   * Handles the change event of the name input field.
+   * @function handleChangeName
+   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event object from the input field.
+   * @returns {void} This function updates the component's state variables (`name`, `isNameValid`, `isNameChanged`).
+   */
   const handleChangeName = (e) => {
     const newName = e.target.value;
     setName(newName);
@@ -101,12 +131,18 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     setIsNameChanged(isValid && newName !== currentNameInDB);
   };
 
+  /**
+   * Handles the process of saving the user's name to the database.
+   * @async
+   * @function handleSaveName
+   * @returns {void} This function does not directly return a value but triggers the saving process and displays notifications based on the outcome and input validity.
+   */
   const handleSaveName = async () => {
     if (user?.uid && isNameChanged && isNameValid) {
       try {
         await updateUserData(user.uid, { name: name });
         toast({
-          title: "Nombre actualizado",
+          title: <Text fontWeight="600">Nombre actualizado</Text>,
           description: "Tu nombre ha sido guardado.",
           status: "success",
           position: "bottom",
@@ -115,7 +151,7 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
         setIsNameChanged(false);
       } catch (error) {
         toast({
-          title: "Error al actualizar el nombre",
+          title: <Text fontWeight="600">Error al actualizar el nombre</Text>,
           description: error.message,
           status: "error",
           position: "bottom",
@@ -131,18 +167,31 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     }
   };
 
+  /**
+   * Handles the change event of the birthday input field.
+   * @function handleBirthDayChange
+   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event object from the input field.
+   * The `e.target.value` contains the newly selected birthday date string (typically in 'YYYY-MM-DD' format).
+   * @returns {void} This function updates the component's state variables.
+   */
   const handleBirthDayChange = (e) => {
     const newBirthDay = e.target.value;
     setBirthDay(newBirthDay);
     setIsBirthDayChanged(newBirthDay && newBirthDay !== currentBirthDayInDB);
   };
 
+  /**
+   * Handles the process of saving the user's birthday to the database.
+   * @async
+   * @function handleSaveBirthDay
+   * @returns {void} This function does not directly return a value but triggers the saving process and displays notifications based on the outcome.
+   */
   const handleSaveBirthDay = async () => {
     if (user?.uid && isBirthDayChanged) {
       try {
         await updateUserData(user.uid, { birthday_date: birthDay });
         toast({
-          title: "Fecha de nacimiento actualizada",
+          title: <Text fontWeight="600">Fecha de nacimiento actualizada</Text>,
           description: "Tu fecha de nacimiento ha sido guardada.",
           status: "success",
           position: "bottom",
@@ -150,7 +199,11 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
         setIsBirthDayChanged(false);
       } catch (error) {
         toast({
-          title: "Error al actualizar la fecha de nacimiento",
+          title: (
+            <Text fontWeight="600">
+              Error al actualizar la fecha de nacimiento
+            </Text>
+          ),
           description: error.message,
           status: "error",
           position: "bottom",
@@ -159,31 +212,27 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     }
   };
 
+  /**
+   * Handles the user logout process.
+   * @async
+   * @function handleLogout
+   * @returns {void} This function does not directly return a value but triggers the logout process.
+   */
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast({
-        title: "Sesión cerrada.",
-        description: "Has cerrado sesión exitosamente.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom",
-      });
-
-      window.location.href = "/";
-    } catch (error) {
-      toast({
-        title: "Error al cerrar sesión.",
-        description: error.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom",
-      });
-    }
+    logoutUser(toast);
   };
 
+  /**
+   * A dynamic tab button component that renders an icon and text.
+   * @param {object} props - The component's props.
+   * @param {string} props.iconName - The name of the Lucide icon to render (e.g., 'LuHome').
+   * @param {string} props.buttonText - The text to display on the button.
+   * @param {function} props.onClick - The function to call when the button is clicked.
+   * @param {boolean} props.isActive - A boolean indicating whether the tab is currently active.
+   * @param {object} props.themeOptions - An object containing theme-related options, such as `borderRadius` and `focusColor`.
+   * @param {number} props.tabIndex - The index of the tab, which will be passed to the `onClick` function.
+   * @returns {JSX.Element} The dynamic tab button component.
+   */
   const DynamicTabButton = ({
     iconName,
     buttonText,
@@ -248,6 +297,16 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     );
   };
 
+  /**
+   * A dynamic web button component that renders an icon, name, and description, linking to an external website.
+   * @param {object} props - The component's props.
+   * @param {string} props.iconName - The name of the Lucide icon to render (e.g., 'LuGlobe').
+   * @param {string} props.webName - The name of the website or link.
+   * @param {string} props.webDesc - A short description of the website or link.
+   * @param {string} props.webLink - The URL to navigate to when the button is clicked.
+   * @param {object} props.themeOptions - An object containing theme-related options, such as `borderRadius`.
+   * @returns {JSX.Element} The dynamic web button component (a Chakra UI `Link`).
+   */
   const DynamicWebButton = ({
     iconName,
     webName,
@@ -308,7 +367,16 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     );
   };
 
-  // Determine the username to display, checking different properties of userInfo and userData
+  /**
+   * Determines the username to display in the user interface.
+   * It prioritizes different properties to fetch the username:
+   * 1. `userInfo.displayName` (if available, typically from the authentication provider).
+   * 2. `userData.name` (if `displayName` is not available, potentially a user-set name from the database).
+   * 3. The part of the `userInfo.email` before the "@" symbol (as a fallback if neither `displayName` nor `userData.name` is present).
+   * @let userName
+   * @type {string}
+   * @default ""
+   */
   let userName = "";
   if (userInfo?.displayName) {
     userName = userInfo.displayName;
@@ -318,7 +386,13 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
     userName = userInfo.email.split("@")[0];
   }
 
-  // Determine the account type
+  /**
+   * Determines the color associated with the user's account type.
+   * It checks the `userData.typeAccount` property and assigns a specific color.
+   * @let typeAccountColor
+   * @type {string}
+   * @default ""
+   */
   let typeAccountColor = "";
   if (userData && userData.typeAccount) {
     if (userData.typeAccount === "basic") {
@@ -782,7 +856,11 @@ const ModalWithTabs = ({ isOpen, onClose, userInfo, userData }) => {
                       borderRadius={themeOptions.borderRadius}
                       outline="none"
                     >
-                      {colorMode === "light" ? <LuSun /> : <LuMoon />}
+                      {colorMode === "light" ? (
+                        <LuIcons.LuSun />
+                      ) : (
+                        <LuIcons.LuMoon />
+                      )}
                     </IconButton>
                   </HStack>
                   <HStack

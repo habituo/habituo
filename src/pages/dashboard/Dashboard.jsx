@@ -1,75 +1,109 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, Navigate, useLocation, useParams } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { collection, onSnapshot, getDocs } from "firebase/firestore";
-import { db } from "../../hooks/firebase";
-import { AllAreas, AllHabits, AreaPage, HabitPage, LeftColumn } from "../../routes/index";
+import {
+  getAreas as getAreasFromDb,
+  getHabitsByArea as getHabitsByAreaFromDb,
+} from "../../hooks/database";
+import {
+  AllAreas,
+  AllHabits,
+  AreaPage,
+  HabitPage,
+  LeftColumn,
+} from "../../routes/index";
 import customTheme from "../../theme/theme";
 import { useTheme } from "../../context/ThemeContext";
-import { ChakraProvider, useToast } from "@chakra-ui/react";
+import {
+  VStack,
+  Text,
+  ChakraProvider,
+  useToast,
+  useColorMode,
+  SimpleGrid,
+  Skeleton,
+} from "@chakra-ui/react";
 
 const Dashboard = () => {
+  // Basic configuration
   const { themeOptions } = useTheme();
-  const [loading, setLoading] = useState(true);
+  const { colorMode } = useColorMode();
   const { user } = useAuth();
+  const toast = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Areas & Habits states
   const [areas, setAreas] = useState([]);
+  const { areaId } = useParams();
+  const [selectedHabit, setSelectedHabit] = useState(null);
+
+  // Resizing columns
   const containerRef = useRef(null);
   const col1Ref = useRef(null);
   const col2Ref = useRef(null);
   const col3Ref = useRef(null);
   const resizer1Ref = useRef(null);
   const resizer2Ref = useRef(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { areaId } = useParams();
   const [content, setContent] = useState(null);
-  const [selectedHabit, setSelectedHabit] = useState({});
-  const toast = useToast();
 
+  /**
+   * Redirects to the all-habits page if the user navigates directly to the dashboard root.
+   */
   useEffect(() => {
-    if (location.pathname === "/dashboard" || location.pathname === "/dashboard/") {
+    if (
+      location.pathname === "/dashboard" ||
+      location.pathname === "/dashboard/"
+    ) {
       navigate("/dashboard/all-habits");
     }
   }, [location, navigate]);
 
-  const fetchAreas = async () => {
-    if (!user) return;
+  /**
+   * Fetches the user's areas from Firestore using the `getAreasFromDb` function.
+   * It sets up a real-time listener to update the `areas` state whenever the data changes.
+   * @function fetchAreas
+   * @returns {Function|void} - Returns the unsubscribe function for the Firestore listener, or void if no user is logged in.
+   */
+  const fetchAreas = useCallback(async () => {
+    if (!user) return () => {};
 
     try {
-      const areasRef = collection(db, "users", user.uid, "areas");
-
-      const unsubscribe = onSnapshot(areasRef, (snapshot) => {
-        const areasList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
+      const unsubscribe = getAreasFromDb((areasList) => {
         setAreas(areasList);
-        setLoading(false);
       });
-
-      return () => unsubscribe();
+      return unsubscribe;
     } catch (error) {
-      console.error("Error al obtener las áreas: ", error);
-      setLoading(false);
+      console.error("Error fetching areas: ", error);
+      return () => {};
     }
-  };
+  }, [user]);
 
-    // Función para obtener los hábitos de Firestore por área
-    const fetchHabits = async (areaId) => {
+  /**
+   * Fetches habits for a specific area using the `getHabitsByAreaFromDb` function.
+   * @async
+   * @function fetchHabits
+   * @param {string} areaId - The ID of the area to fetch habits from.
+   * @returns {Promise<Array<object>>} - A promise that resolves to an array of habit objects.
+   */
+  const fetchHabits = useCallback(
+    async (areaId) => {
+      if (!user || !areaId) return [];
       try {
-        const querySnapshot = await getDocs(collection(db, `users/${user.uid}/areas/${areaId}/habits`));
-        const habitsList = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const habitsList = await getHabitsByAreaFromDb(areaId);
         return habitsList;
       } catch (error) {
-        console.error("Error getting habits: ", error);
+        console.error(`Error getting habits for area ${areaId}: `, error);
         return [];
       }
-    };
+    },
+    [user]
+  );
 
+  /**
+   * Handles the resizing logic for the dashboard columns.
+   * It allows the user to drag the resizers to adjust the width of the left and right columns.
+   */
   useEffect(() => {
     let isResizing = false;
     let activeResizer = null;
@@ -125,42 +159,66 @@ const Dashboard = () => {
       document.removeEventListener("mouseup", handleMouseUp);
     };
 
-    resizer1Ref.current.addEventListener("mousedown", (e) =>
-      handleMouseDown(e, resizer1Ref.current)
-    );
-    resizer2Ref.current.addEventListener("mousedown", (e) =>
-      handleMouseDown(e, resizer2Ref.current)
-    );
+    const resizer1 = resizer1Ref.current;
+    const resizer2 = resizer2Ref.current;
+
+    if (resizer1) {
+      resizer1.addEventListener("mousedown", (e) =>
+        handleMouseDown(e, resizer1)
+      );
+    }
+    if (resizer2) {
+      resizer2.addEventListener("mousedown", (e) =>
+        handleMouseDown(e, resizer2)
+      );
+    }
 
     return () => {
-      resizer1Ref.current?.removeEventListener("mousedown", handleMouseDown);
-      resizer2Ref.current?.removeEventListener("mousedown", handleMouseDown);
+      if (resizer1) {
+        resizer1.removeEventListener("mousedown", handleMouseDown);
+      }
+      if (resizer2) {
+        resizer2.removeEventListener("mousedown", handleMouseDown);
+      }
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
-  
+
+  /**
+   * Sets the main content area based on the current URL path.
+   * It renders different components for all habits, all areas, and specific area pages.
+   */
   useEffect(() => {
     if (areaId) {
-      setContent(<AreaPage areas={areas} fetchHabits={fetchHabits} user={user}
-        toast={toast} />);
+      setContent(
+        <AreaPage areas={areas} setSelectedHabit={setSelectedHabit} />
+      );
     } else {
       switch (location.pathname) {
-        case '/dashboard/all-habits':
+        case "/dashboard/all-habits":
           setContent(<AllHabits setSelectedHabit={setSelectedHabit} />);
           break;
-        case '/dashboard/all-areas':
+        case "/dashboard/all-areas":
           setContent(<AllAreas />);
           break;
         default:
           setContent(<AllHabits setSelectedHabit={setSelectedHabit} />);
       }
     }
-  }, [location.pathname, areaId, areas, user, toast]);
+  }, [location.pathname, areaId, areas, setSelectedHabit]);
 
+  /**
+   * Fetches the initial areas data when the component mounts.
+   */
   useEffect(() => {
-    fetchAreas();
-  }, [user]);
+    const unsubscribe = fetchAreas();
+    return () => {
+      if (unsubscribe && typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [fetchAreas]);
 
   return (
     <ChakraProvider
@@ -180,7 +238,51 @@ const Dashboard = () => {
         </div>
         <div ref={resizer2Ref} className="resizer" id="resizer2"></div>
         <div ref={col3Ref} className="column" id="col3" style={{ flex: 3 }}>
-          {selectedHabit && <HabitPage habit={selectedHabit} />}
+          {selectedHabit ? (
+            <HabitPage habit={selectedHabit} />
+          ) : (
+            <VStack
+              w="100%"
+              h="100vh"
+              p={4}
+              spacing={2}
+              textAlign="center"
+              justifyContent="center"
+              bg={
+                colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"
+              }
+            >
+              <SimpleGrid mb={4} columns={2} rows={2} spacing={2}>
+                <Skeleton
+                  w="50px"
+                  h="50px"
+                  borderRadius={themeOptions.borderRadius}
+                ></Skeleton>
+                <Skeleton
+                  w="50px"
+                  h="50px"
+                  borderRadius={themeOptions.borderRadius}
+                ></Skeleton>
+                <Skeleton
+                  w="50px"
+                  h="50px"
+                  borderRadius={themeOptions.borderRadius}
+                ></Skeleton>
+                <Skeleton
+                  w="50px"
+                  h="50px"
+                  borderRadius={themeOptions.borderRadius}
+                ></Skeleton>
+              </SimpleGrid>
+              <Text as="h2" fontSize="xl" fontWeight="600">
+                Selecciona un hábito para visualizar su contenido
+              </Text>
+              <Text as="p" fontSize="sm" fontWeight="400">
+                Para poder ver los progresos e información acerca de un hábito,
+                solo selecciona el hábito deseado.
+              </Text>
+            </VStack>
+          )}
         </div>
       </div>
     </ChakraProvider>

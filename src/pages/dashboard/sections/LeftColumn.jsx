@@ -214,9 +214,14 @@ const LeftColumn = () => {
             justifyContent="flex-start"
             colorScheme=""
             variant="ghost"
-            _focusVisible={{ boxShadow: "none" }}
+            _focusVisible="none"
           >
-            <Flex alignItems="center" justifyContent="flex-start" gap={3} overflow="hidden">
+            <Flex
+              alignItems="center"
+              justifyContent="flex-start"
+              gap={3}
+              overflow="hidden"
+            >
               <Avatar
                 src={`//wsrv.nl/?url=${userInfo.photoURL}`}
                 name={userName}
@@ -251,7 +256,7 @@ const LeftColumn = () => {
                 variant="ghost"
                 borderRadius={0}
                 borderTopRadius={themeOptions.borderRadius}
-                _focusVisible={{ boxShadow: "none" }}
+                _focusVisible="none"
               >
                 Ver Perfil
               </Button>
@@ -266,7 +271,7 @@ const LeftColumn = () => {
                 variant="ghost"
                 borderRadius={0}
                 borderBottomRadius={themeOptions.borderRadius}
-                _focusVisible={{ boxShadow: "none" }}
+                _focusVisible="none"
               >
                 Cerrar sesión
               </Button>
@@ -298,7 +303,7 @@ const LeftColumn = () => {
           variant={isHabitsActive ? "solid" : "ghost"}
           colorScheme={isHabitsActive ? themeOptions.focusColor : ""}
           leftIcon={<LuIcons.LuClipboardList size="16px" />}
-          _focusVisible={{ boxShadow: "none" }}
+          _focusVisible="none"
         >
           Todos los hábitos
         </Button>
@@ -315,7 +320,7 @@ const LeftColumn = () => {
           variant={"ghost"}
           colorScheme={""}
           leftIcon={<LuIcons.LuPlus size="16px" />}
-          _focusVisible={{ boxShadow: "none" }}
+          _focusVisible="none"
         >
           Agregar hábito
         </Button>
@@ -376,7 +381,7 @@ const LeftColumn = () => {
           variant={isAreasActive ? "solid" : "ghost"}
           colorScheme={isAreasActive ? themeOptions.focusColor : ""}
           leftIcon={<LuIcons.LuClipboardList size="16px" />}
-          _focusVisible={{ boxShadow: "none" }}
+          _focusVisible="none"
         >
           Todas las áreas
         </Button>
@@ -410,10 +415,9 @@ const LeftColumn = () => {
             {areas.map((area) => {
               const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
               return (
-                <>
+                <div key={area.id}>
                   <Button
                     as={Button}
-                    key={area.id}
                     px={3}
                     w="100%"
                     minH="40px"
@@ -427,7 +431,7 @@ const LeftColumn = () => {
                     }
                     leftIcon={<IconComponent size="16px" />}
                     onContextMenu={(e) => handleContextMenu(e, area)}
-                    _focusVisible={{ boxShadow: "none" }}
+                    _focusVisible="none"
                   >
                     {area.name}
                   </Button>
@@ -461,7 +465,7 @@ const LeftColumn = () => {
                           borderTopRadius={themeOptions.borderRadius}
                           variant="ghost"
                           onClick={() => handleEdit(area)}
-                          _focusVisible={{ boxShadow: "none" }}
+                          _focusVisible="none"
                         >
                           Editar
                         </Button>
@@ -473,13 +477,13 @@ const LeftColumn = () => {
                           borderBottomRadius={themeOptions.borderRadius}
                           variant="ghost"
                           onClick={onOpenDeleteDialog}
-                          _focusVisible={{ boxShadow: "none" }}
+                          _focusVisible="none"
                         >
                           Eliminar
                         </Button>
                       </HStack>
                     )}
-                </>
+                </div>
               );
             })}
           </VStack>
@@ -522,7 +526,7 @@ const LeftColumn = () => {
           variant={"ghost"}
           colorScheme={""}
           leftIcon={<FiPlus size="16px" />}
-          _focusVisible={{ boxShadow: "none" }}
+          _focusVisible="none"
         >
           Agregar área
         </Button>
@@ -556,7 +560,7 @@ const LeftColumn = () => {
         colorScheme={""}
         width="100%"
         leftIcon={<LuIcons.LuSlidersHorizontal size="16px" />}
-        _focusVisible={{ boxShadow: "none" }}
+        _focusVisible="none"
       >
         Ajustes generales
       </Button>

@@ -20,12 +20,7 @@ import {
   PopoverBody,
   FormLabel,
   FormControl,
-  FormErrorMessage,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
+  Icon,
   Stack,
   Checkbox,
   CheckboxGroup,
@@ -36,16 +31,9 @@ import {
   MenuItemOption,
   useToast,
   useColorMode,
+  useNumberInput,
 } from "@chakra-ui/react";
-import { db } from "../hooks/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
+import { serverTimestamp } from "firebase/firestore";
 import {
   addHabit as addHabitToDb,
   updateHabit as updateHabitInDb,
@@ -83,7 +71,14 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
   // Errors and labels
   const [error, setError] = useState("");
 
-  // Validate the name on real time
+  /**
+   * Validates the habit name in real time.
+   * It checks if the input value is not empty and contains only letters, numbers, and spaces.
+   * If the validation fails, it sets an error message.
+   * @function validateName
+   * @param {string} value - The current value of the habit name input.
+   * @returns {boolean} - True if the name is valid, false otherwise.
+   */
   const validateName = (value) => {
     if (!value.trim()) {
       setError("El nombre del hábito no puede estar vacío.");
@@ -97,21 +92,48 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
     return true;
   };
 
-  // Lazy load icons
+  /**
+   * Loads more icons for the user to select from.
+   * It increments the number of visible icons in the icon selection interface.
+   * @function loadMoreIcons
+   * @returns {void}
+   */
   const loadMoreIcons = () => {
     setVisibleIcons((prev) => prev + 30);
   };
 
+  /**
+   * Filters the available icons based on the user's search input.
+   * It converts both the icon name and the search term to lowercase for case-insensitive filtering.
+   * @constant filteredIcons
+   * @type {Array<string>}
+   */
   const filteredIcons = Object.keys(LuIcons).filter((iconName) =>
     iconName.toLowerCase().includes(searchIcon.toLowerCase())
   );
 
+  /**
+   * Handles the save operation for a habit (either creating a new one or updating an existing one).
+   * It first validates the habit name and checks if a user and area are selected.
+   * If validation passes, it constructs the habit data object and calls the appropriate database function
+   * (addHabitToDb or updateHabitInDb). It also displays a success or error toast notification.
+   * @async
+   * @function handleSave
+   * @returns {void}
+   */
   const handleSave = async () => {
     if (!validateName(habitName) || !user || !selectedArea) {
       if (!selectedArea) {
         toast({
           title: <Text fontWeight="600">Seleccionar área</Text>,
           description: "Debes seleccionar un área antes de continuar.",
+          status: "error",
+          position: "bottom",
+        });
+      } else if (!validateName(habitName)) {
+        toast({
+          title: <Text fontWeight="600">Revisa el nombre del hábito</Text>,
+          description: error,
           status: "error",
           position: "bottom",
         });
@@ -164,72 +186,79 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
     }
   };
 
-  // Fetch areas from Firestore
-  const fetchAreas = async () => {
-    if (!user) return;
+  /**
+   * Provides properties for controlling a number input component from Chakra UI.
+   * It sets the step, default value, minimum, maximum, current value, and an onChange handler.
+   * @constant {object} numberInputProps
+   */
+  const { getInputProps, getIncrementButtonProps, getDecrementButtonProps } =
+    useNumberInput({
+      step: 1,
+      defaultValue: 1,
+      min: 1,
+      max: 9999,
+      value: goalValue,
+      onChange: (value) => setGoalValue(value),
+    });
 
-    const userId = user.uid;
-    const areasRef = collection(db, `users/${userId}/areas`);
+  const inc = getIncrementButtonProps();
+  const dec = getDecrementButtonProps();
+  const inputProps = getInputProps({
+    fontSize: "sm",
+    h: "2.5rem",
+    borderRadius: themeOptions.borderRadius,
+    _focusVisible: "none",
+    w: "100%",
+  });
 
-    try {
-      const snapshot = await getDocs(areasRef);
-      const areasList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        name: doc.data().name,
-        icon: doc.data().icon || "LuFolder",
-      }));
-
-      setAreas(areasList);
-    } catch (error) {
-      toast({
-        title: <Text fontWeight="600">Error al cargar</Text>,
-        description: "No se pudo cargar las áreas. Inténtalo de nuevo.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom-center",
-        containerStyle: { borderRadius: themeOptions.borderRadius },
+  /**
+   * Fetches the user's areas from Firestore when the component mounts or when the user changes.
+   * It uses the `getAreasFromDb` function and updates the `areas` state.
+   * If editing a habit, it also ensures that the selected area is still valid; otherwise, it resets the selected area.
+   * @useEffect
+   * @dependency {[user, selectedHabit]} - This effect runs when the user object or the selectedHabit object changes.
+   * @returns {void}
+   */
+  useEffect(() => {
+    if (user) {
+      getAreasFromDb((fetchedAreas) => {
+        setAreas(fetchedAreas);
+        // If editing, ensure the selected area is still valid
+        if (
+          selectedHabit &&
+          !fetchedAreas.find((area) => area.id === selectedHabit.area)
+        ) {
+          setSelectedArea("");
+        }
       });
     }
-  };
+  }, [user, selectedHabit]);
 
+  /**
+   * Resets the form state when the modal opens.
+   * It populates the form fields with the data of the selected habit if in edit mode,
+   * or sets them to default empty values if creating a new habit.
+   * @useEffect
+   * @dependency {[isOpen, selectedHabit]} - This effect runs when the modal's open state or the selectedHabit object changes.
+   * @returns {void}
+   */
   useEffect(() => {
-    if (!user) return;
-    fetchAreas();
-  }, [user]);
-
-  // Reset form state when modal opens for creating a new habit
-  useEffect(() => {
-    if (isOpen && !selectedHabit) {
-      setHabitName("");
+    if (isOpen) {
+      setHabitName(selectedHabit?.name || "");
       setSearchIcon("");
-      setSelectedIcon("LuActivity");
-      setGoalValue(1);
-      setGoalUnit("times");
-      setGoalPeriod("day");
-      setRepeatInterval("day");
-      setRepeatType("day");
-      setSelectedDays([]);
-      setSelectedRepeatInterval("1");
-      setSelectedMonthDay(1);
-      setReminderTime("");
-      setStartDate("");
-      setSelectedArea("");
-      setError(""); // Clear any previous errors
-    } else if (isOpen && selectedHabit) {
-      setHabitName(selectedHabit.name || "");
-      setSelectedIcon(selectedHabit.icon || "LuActivity");
-      setGoalValue(selectedHabit.goal?.value || 1);
-      setGoalUnit(selectedHabit.goal?.unit || "times");
-      setGoalPeriod(selectedHabit.goal?.period || "day");
-      setRepeatInterval(selectedHabit.interval?.value || "day");
-      setRepeatType(selectedHabit.repeat?.type || "day");
-      setSelectedDays(selectedHabit.repeat?.days || []);
-      setSelectedRepeatInterval(selectedHabit.repeat?.interval || "1");
-      setSelectedMonthDay(selectedHabit.repeat?.dayOfMonth || 1);
-      setSelectedArea(selectedHabit.area || "");
-      setReminderTime(selectedHabit.reminder || "");
-      setStartDate(selectedHabit.startDate || "");
+      setSelectedIcon(selectedHabit?.icon || "LuActivity");
+      setGoalValue(selectedHabit?.goal?.value || 1);
+      setGoalUnit(selectedHabit?.goal?.unit || "times");
+      setGoalPeriod(selectedHabit?.goal?.period || "day");
+      setRepeatInterval(selectedHabit?.repeat?.interval || "day");
+      setRepeatType(selectedHabit?.repeat?.type || "day");
+      setSelectedDays(selectedHabit?.repeat?.days || []);
+      setSelectedRepeatInterval(selectedHabit?.repeat?.interval || "1");
+      setSelectedMonthDay(selectedHabit?.repeat?.dayOfMonth || 1);
+      setReminderTime(selectedHabit?.reminder || "");
+      setStartDate(selectedHabit?.startDate || "");
+      setSelectedArea(selectedHabit?.area || "");
+      setError("");
     }
   }, [isOpen, selectedHabit]);
 
@@ -241,7 +270,7 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
         bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
       >
         <ModalHeader p={4}>
-          {selectedHabit ? "Editar hábito" : "Crear un nuevo hábito"}
+          {selectedHabit ? "Editar " : "Crear "} hábito
         </ModalHeader>
         <ModalCloseButton
           top={2}
@@ -249,554 +278,178 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
           borderRadius={themeOptions.borderRadius}
         />
         <ModalBody px={4}>
-          <FormLabel
-            mb={1}
-            fontSize="xs"
-            textTransform="uppercase"
-            opacity={0.5}
-          >
-            Nombre
-          </FormLabel>
-          <HStack mb={2} alignItems="flex-start">
-            <FormControl isInvalid={error}>
-              <VStack w="100%" alignItems="flex-start" spacing={0}>
+          <VStack alignItems="stretch" spacing={4}>
+            <HStack spacing={4}>
+              {/* Habit name */}
+              <FormControl w="70%" isInvalid={!!error}>
+                <FormLabel
+                  htmlFor="habit-name"
+                  fontSize="xs"
+                  fontWeight={600}
+                  textTransform="uppercase"
+                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                >
+                  Nombre del hábito
+                </FormLabel>
                 <Input
-                  type="text"
-                  variant="outline"
+                  id="habit-name"
+                  value={habitName}
                   size="sm"
                   h="2.5rem"
-                  placeholder="Nombre del hábito"
                   borderRadius={themeOptions.borderRadius}
-                  borderWidth={1}
-                  borderColor={`var(--chakra-colors-chakra-border-color)`}
                   _focusVisible="none"
-                  _hover={{
-                    bg: "none",
-                    borderColor:
-                      colorMode === "light"
-                        ? "#CBD5E0"
-                        : "rgba(255, 255, 255, 0.24)",
-                  }}
-                  value={habitName}
-                  onChange={(e) => {
-                    setHabitName(e.target.value);
-                    validateName(e.target.value);
-                  }}
+                  onChange={(e) => setHabitName(e.target.value)}
+                  onBlur={(e) => validateName(e.target.value)}
                 />
-                <FormErrorMessage>{error}</FormErrorMessage>
-              </VStack>
-            </FormControl>
-            <Popover>
-              <PopoverTrigger>
-                <Button
-                  bg={
-                    colorMode === "light"
-                      ? "var(--chakra-colors-gray-200)"
-                      : "var(--chakra-colors-whiteAlpha-200)"
-                  }
-                  _hover={{
-                    bg:
-                      colorMode === "light"
-                        ? "var(--chakra-colors-gray-300)"
-                        : "var(--chakra-colors-whiteAlpha-300)",
-                  }}
-                  fontSize="20px"
+              </FormControl>
+
+              {/* Habit icon */}
+              <FormControl w="10%">
+                <FormLabel
+                  htmlFor="habit-icon"
+                  fontSize="xs"
+                  fontWeight={600}
+                  textTransform="uppercase"
+                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
                 >
-                  {React.createElement(LuIcons[selectedIcon])}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                w="fit-content"
-                borderRadius={themeOptions.borderRadius}
-                bg={
-                  colorMode === "light"
-                    ? "rgb(245, 245, 245)"
-                    : "rgb(23, 23, 23)"
-                }
-              >
-                <PopoverBody
-                  p={2}
-                  maxH="300px"
-                  overflowY="scroll"
-                  overflowX="hidden"
-                  borderRadius={themeOptions.borderRadius}
-                  userSelect="none"
-                  sx={{
-                    "&::-webkit-scrollbar": {
-                      width: "4px",
-                    },
-                    "&::-webkit-scrollbar-thumb": {
-                      backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-                      borderRadius: "4px",
-                    },
-                    "&::-webkit-scrollbar-thumb:hover": {
-                      backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-                    },
-                    "&::-webkit-scrollbar-track": {
-                      backgroundColor: "transparent",
-                      borderRadius: "4px",
-                    },
-                  }}
-                >
-                  <Input
-                    mb={2}
-                    placeholder="Buscar icono..."
-                    size="sm"
+                  Icono
+                </FormLabel>
+                <Popover id="habit-icon" placement="bottom-start">
+                  <PopoverTrigger>
+                    <Button>
+                      {React.createElement(LuIcons[selectedIcon])}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    p={2}
                     borderRadius={themeOptions.borderRadius}
-                    _focusVisible={{
-                      borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-                    }}
-                    value={searchIcon}
-                    onChange={(e) => setSearchIcon(e.target.value)}
-                  />
-                  <SimpleGrid columns={6} spacing={1}>
-                    {filteredIcons.slice(0, visibleIcons).map((iconName) => {
-                      const IconComponent = LuIcons[iconName];
-                      return (
+                    bg={
+                      colorMode === "light"
+                        ? "rgb(245, 245, 245)"
+                        : "rgb(23, 23, 23)"
+                    }
+                  >
+                    <Input
+                      placeholder="Buscar icono..."
+                      value={searchIcon}
+                      size="sm"
+                      h="2.5rem"
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                      onChange={(e) => {
+                        setSearchIcon(e.target.value);
+                        setVisibleIcons(30);
+                      }}
+                    />
+                    <SimpleGrid
+                      columns={5}
+                      spacing={1}
+                      mt={2}
+                      maxH="200px"
+                      overflowY="auto"
+                      overflowX="hidden"
+                      userSelect="none"
+                      sx={{
+                        "&::-webkit-scrollbar": {
+                          width: "4px",
+                        },
+                        "&::-webkit-scrollbar-thumb": {
+                          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
+                          borderRadius: "4px",
+                        },
+                        "&::-webkit-scrollbar-thumb:hover": {
+                          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
+                        },
+                        "&::-webkit-scrollbar-track": {
+                          backgroundColor: "transparent",
+                          borderRadius: "4px",
+                        },
+                      }}
+                    >
+                      {filteredIcons.slice(0, visibleIcons).map((iconName) => (
                         <Box
                           key={iconName}
-                          as="button"
+                          as={Button}
+                          onClick={() => setSelectedIcon(iconName)}
                           p={2}
+                          textAlign="center"
                           borderRadius={themeOptions.borderRadius}
-                          border="1px solid"
-                          borderColor={
-                            selectedIcon === iconName
-                              ? themeOptions.focusColor
-                              : "gray.200"
-                          }
-                          onClick={() => {
-                            setSelectedIcon(iconName);
-                          }}
-                          transition=".1s all linear"
-                          bg={
-                            colorMode === "light"
-                              ? "rgb(255, 255, 255)"
-                              : "rgb(0, 0, 0)"
-                          }
                           _hover={{
                             bg:
                               colorMode === "light"
-                                ? `var(--chakra-colors-${themeOptions.focusColor}-50)`
-                                : "var(--chakra-colors-blackAlpha-600)",
-                            borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
+                                ? `${themeOptions.focusColor}.100`
+                                : `${themeOptions.focusColor}.700`,
                           }}
+                          transition=".1s all linear"
                         >
-                          <IconComponent size="20px" />
+                          {React.createElement(LuIcons[iconName], { size: 20 })}
                         </Box>
-                      );
-                    })}
-                  </SimpleGrid>
-                  {visibleIcons < Object.keys(LuIcons).length && (
-                    <Button
-                      size="sm"
-                      mt={2}
-                      onClick={loadMoreIcons}
-                      w="100%"
-                      colorScheme={themeOptions.focusColor}
-                    >
-                      Ver más iconos
-                    </Button>
-                  )}
-                </PopoverBody>
-              </PopoverContent>
-            </Popover>
-          </HStack>
-          <HStack spacing={4}>
-            <Box my={2}>
-              <FormLabel
-                mb={1}
-                fontSize="xs"
-                textTransform="uppercase"
-                opacity={0.5}
-              >
-                Meta
-              </FormLabel>
-              <HStack spacing={4}>
-                <NumberInput
-                  w="33.33333%"
-                  defaultValue={1}
-                  min={1}
-                  max={9999}
-                  value={goalValue}
-                  onChange={(value) => setGoalValue(value)}
-                >
-                  <NumberInputField
-                    fontSize="sm"
-                    h="2.5rem"
-                    borderRadius={themeOptions.borderRadius}
-                    _focusVisible="none"
-                  />
-                  <NumberInputStepper>
-                    <NumberIncrementStepper />
-                    <NumberDecrementStepper />
-                  </NumberInputStepper>
-                </NumberInput>
-                <Menu closeOnSelect={false}>
-                  <MenuButton
-                    as={Button}
-                    textAlign="left"
-                    variant="ghost"
-                    size="sm"
-                    w="33.33333%"
-                    h="2.5rem"
-                    borderWidth={1}
-                    borderColor={`var(--chakra-colors-chakra-border-color)`}
-                    _focusVisible="none"
-                    _hover={{
-                      bg: "none",
-                      borderColor:
-                        colorMode === "light"
-                          ? "#CBD5E0"
-                          : "rgba(255, 255, 255, 0.24)",
-                    }}
-                  >
-                    {goalUnit === "times" ? "Veces" : "Minutos"}
-                  </MenuButton>
-                  <MenuList
-                    borderRadius={themeOptions.borderRadius}
-                    bg={
-                      colorMode === "light"
-                        ? "var(--menu-bg)"
-                        : "rgb(23, 23, 23)"
-                    }
-                  >
-                    <MenuOptionGroup
-                      type="radio"
-                      value={goalUnit}
-                      onChange={(value) => setGoalUnit(value)}
-                    >
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="times"
-                      >
-                        Veces
-                      </MenuItemOption>
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="minutes"
-                      >
-                        Minutos
-                      </MenuItemOption>
-                    </MenuOptionGroup>
-                  </MenuList>
-                </Menu>
-                <Menu closeOnSelect={false}>
-                  <MenuButton
-                    as={Button}
-                    textAlign="left"
-                    variant="ghost"
-                    size="sm"
-                    w="33.33333%"
-                    h="2.5rem"
-                    borderWidth={1}
-                    borderColor={`var(--chakra-colors-chakra-border-color)`}
-                    _focusVisible="none"
-                    _hover={{
-                      bg: "none",
-                      borderColor:
-                        colorMode === "light"
-                          ? "#CBD5E0"
-                          : "rgba(255, 255, 255, 0.24)",
-                    }}
-                  >
-                    {goalPeriod === "day"
-                      ? "Al día"
-                      : goalPeriod === "week"
-                      ? "A la semana"
-                      : "Al mes"}
-                  </MenuButton>
-                  <MenuList
-                    borderRadius={themeOptions.borderRadius}
-                    bg={
-                      colorMode === "light"
-                        ? "var(--menu-bg)"
-                        : "rgb(23, 23, 23)"
-                    }
-                  >
-                    <MenuOptionGroup
-                      type="radio"
-                      value={goalPeriod}
-                      onChange={(value) => setGoalPeriod(value)}
-                    >
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="day"
-                      >
-                        Al día
-                      </MenuItemOption>
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="week"
-                      >
-                        A la semana
-                      </MenuItemOption>
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="month"
-                      >
-                        Al més
-                      </MenuItemOption>
-                    </MenuOptionGroup>
-                  </MenuList>
-                </Menu>
-              </HStack>
-            </Box>
-          </HStack>
-          <HStack w="100%">
-            <Box w="100%" my={2}>
-              <FormLabel
-                mb={1}
-                fontSize="xs"
-                textTransform="uppercase"
-                opacity={0.5}
-              >
-                Repetición
-              </FormLabel>
-              <HStack w="100%" spacing={4}>
-                <Menu closeOnSelect={false}>
-                  <MenuButton
-                    as={Button}
-                    textAlign="left"
-                    variant="ghost"
-                    size="sm"
-                    w="30%"
-                    h="2.5rem"
-                    borderWidth={1}
-                    borderColor={`var(--chakra-colors-chakra-border-color)`}
-                    _focusVisible="none"
-                    _hover={{
-                      bg: "none",
-                      borderColor:
-                        colorMode === "light"
-                          ? "#CBD5E0"
-                          : "rgba(255, 255, 255, 0.24)",
-                    }}
-                  >
-                    {repeatType === "day"
-                      ? "Diario"
-                      : repeatType === "month"
-                      ? "Mensual"
-                      : "Intervalo"}
-                  </MenuButton>
-                  <MenuList
-                    borderRadius={themeOptions.borderRadius}
-                    bg={
-                      colorMode === "light"
-                        ? "var(--menu-bg)"
-                        : "rgb(23, 23, 23)"
-                    }
-                  >
-                    <MenuOptionGroup
-                      type="radio"
-                      value={repeatType}
-                      onChange={(value) => setRepeatType(value)}
-                    >
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="day"
-                      >
-                        Diario
-                      </MenuItemOption>
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="month"
-                      >
-                        Mensual
-                      </MenuItemOption>
-                      <MenuItemOption
-                        bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
-                        }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        value="interval"
-                      >
-                        Intervalo
-                      </MenuItemOption>
-                    </MenuOptionGroup>
-                  </MenuList>
-                </Menu>
-                {repeatType === "day" && (
-                  <Popover>
-                    <PopoverTrigger>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        w="70%"
-                        h="2.5rem"
-                        justifyContent="justify-start"
-                        borderRadius={themeOptions.borderRadius}
-                        borderWidth={1}
-                        borderColor={`var(--chakra-colors-chakra-border-color)`}
-                        _focusVisible="none"
-                        _hover={{
-                          bg: "none",
-                          borderColor:
-                            colorMode === "light"
-                              ? "#CBD5E0"
-                              : "rgba(255, 255, 255, 0.24)",
-                        }}
-                        overflow="hidden"
-                      >
-                        {selectedDays.length > 0
-                          ? selectedDays.join(", ")
-                          : "Seleccionar días"}
+                      ))}
+                    </SimpleGrid>
+                    {filteredIcons.length > visibleIcons && (
+                      <Button size="sm" mt={2} onClick={loadMoreIcons}>
+                        Cargar más
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      borderRadius={themeOptions.borderRadius}
-                      bg={
-                        colorMode === "light"
-                          ? "var(--menu-bg)"
-                          : "rgb(23, 23, 23)"
-                      }
-                    >
-                      <PopoverBody px={0} py={2}>
-                        <CheckboxGroup
-                          value={selectedDays}
-                          onChange={setSelectedDays}
-                        >
-                          <Stack direction="column" spacing={0}>
-                            {[
-                              "Lunes",
-                              "Martes",
-                              "Miércoles",
-                              "Jueves",
-                              "Viernes",
-                              "Sábado",
-                              "Domingo",
-                            ].map((day, index) => (
-                              <Checkbox
-                                px={2}
-                                py={1}
-                                key={index}
-                                value={day}
-                                _hover={{
-                                  bg:
-                                    colorMode === "light"
-                                      ? "rgb(237 242 247)"
-                                      : "rgba(255, 255, 255, 0.06)",
-                                }}
-                              >
-                                {day}
-                              </Checkbox>
-                            ))}
-                          </Stack>
-                        </CheckboxGroup>
-                      </PopoverBody>
-                    </PopoverContent>
-                  </Popover>
-                )}
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </FormControl>
 
-                {repeatType === "month" && (
-                  <Input
-                    type="date"
-                    size="sm"
-                    w="70%"
-                    h="2.5rem"
-                    borderRadius={themeOptions.borderRadius}
-                    _focusVisible="none"
-                    onChange={(e) => setSelectedMonthDay(e.target.value)}
-                  />
-                )}
+              {/* Habit reminder */}
+              <FormControl w="20%">
+                <FormLabel
+                  htmlFor="habit-reminder"
+                  fontSize="xs"
+                  fontWeight={600}
+                  textTransform="uppercase"
+                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                >
+                  Recordatorio
+                </FormLabel>
+                <Input
+                  type="time"
+                  value={reminderTime}
+                  size="sm"
+                  h="2.5rem"
+                  borderRadius={themeOptions.borderRadius}
+                  border="1px solid var(--chakra-colors-chakra-border-color)"
+                  _focusVisible="none"
+                  onChange={(e) => setReminderTime(e.target.value)}
+                />
+              </FormControl>
+            </HStack>
 
-                {repeatType === "interval" && (
-                  <Menu closeOnSelect={false}>
+            {/* Habit goal */}
+            <HStack>
+              <FormControl>
+                <FormLabel
+                  htmlFor="habit-name"
+                  fontSize="xs"
+                  fontWeight={600}
+                  textTransform="uppercase"
+                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                >
+                  Meta a lograr
+                </FormLabel>
+                <HStack spacing={4}>
+                  <HStack w="33.33333%">
+                    <Button {...dec}>-</Button>
+                    <Input id="goal-value" {...inputProps} />
+                    <Button {...inc}>+</Button>
+                  </HStack>
+                  <Menu closeOnSelect={true}>
                     <MenuButton
                       as={Button}
-                      textAlign="left"
-                      variant="ghost"
                       size="sm"
-                      w="70%"
+                      w="33.33333%"
                       h="2.5rem"
-                      borderWidth={1}
-                      borderColor={`var(--chakra-colors-chakra-border-color)`}
+                      variant="ghost"
+                      textAlign="left"
+                      border="1px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
                       _focusVisible="none"
-                      _hover={{
-                        bg: "none",
-                        borderColor:
-                          colorMode === "light"
-                            ? "#CBD5E0"
-                            : "rgba(255, 255, 255, 0.24)",
-                      }}
                     >
-                      {"Repetir cada " + selectedRepeatInterval}
+                      {goalUnit === "times" ? "Veces" : "Minutos"}
                     </MenuButton>
                     <MenuList
                       borderRadius={themeOptions.borderRadius}
@@ -808,8 +461,8 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
                     >
                       <MenuOptionGroup
                         type="radio"
-                        value={selectedRepeatInterval}
-                        onChange={(value) => setSelectedRepeatInterval(value)}
+                        value={goalUnit}
+                        onChange={(value) => setGoalUnit(value)}
                       >
                         <MenuItemOption
                           bg={
@@ -823,9 +476,9 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
                                 ? "rgb(237 242 247)"
                                 : "rgba(255, 255, 255, 0.06)",
                           }}
-                          value="1"
+                          value="times"
                         >
-                          Repetir cada 1
+                          Veces
                         </MenuItemOption>
                         <MenuItemOption
                           bg={
@@ -839,247 +492,552 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
                                 ? "rgb(237 242 247)"
                                 : "rgba(255, 255, 255, 0.06)",
                           }}
-                          value="2"
+                          value="minutes"
                         >
-                          Repetir cada 2
-                        </MenuItemOption>
-                        <MenuItemOption
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                          _hover={{
-                            bg:
-                              colorMode === "light"
-                                ? "rgb(237 242 247)"
-                                : "rgba(255, 255, 255, 0.06)",
-                          }}
-                          value="3"
-                        >
-                          Repetir cada 3
-                        </MenuItemOption>
-                        <MenuItemOption
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                          _hover={{
-                            bg:
-                              colorMode === "light"
-                                ? "rgb(237 242 247)"
-                                : "rgba(255, 255, 255, 0.06)",
-                          }}
-                          value="4"
-                        >
-                          Repetir cada 4
-                        </MenuItemOption>
-                        <MenuItemOption
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                          _hover={{
-                            bg:
-                              colorMode === "light"
-                                ? "rgb(237 242 247)"
-                                : "rgba(255, 255, 255, 0.06)",
-                          }}
-                          value="5"
-                        >
-                          Repetir cada 5
-                        </MenuItemOption>
-                        <MenuItemOption
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                          _hover={{
-                            bg:
-                              colorMode === "light"
-                                ? "rgb(237 242 247)"
-                                : "rgba(255, 255, 255, 0.06)",
-                          }}
-                          value="6"
-                        >
-                          Repetir cada 6
-                        </MenuItemOption>
-                        <MenuItemOption
-                          bg={
-                            colorMode === "light"
-                              ? "var(--menu-bg)"
-                              : "rgb(23, 23, 23)"
-                          }
-                          _hover={{
-                            bg:
-                              colorMode === "light"
-                                ? "rgb(237 242 247)"
-                                : "rgba(255, 255, 255, 0.06)",
-                          }}
-                          value="7"
-                        >
-                          Repetir cada 7
+                          Minutos
                         </MenuItemOption>
                       </MenuOptionGroup>
                     </MenuList>
                   </Menu>
-                )}
-              </HStack>
-            </Box>
-          </HStack>
-          <HStack spacing={4}>
-            <Box my={2} w="50%">
-              <FormLabel
-                mb={1}
-                fontSize="xs"
-                textTransform="uppercase"
-                opacity={0.5}
-              >
-                Áreas
-              </FormLabel>
-              <Menu closeOnSelect={false}>
-                <MenuButton
-                  as={Button}
-                  textAlign="left"
-                  variant="ghost"
-                  leftIcon={
-                    selectedArea &&
-                    areas.find((area) => area.id === selectedArea)?.icon ? (
-                      LuIcons[
-                        areas.find((area) => area.id === selectedArea)?.icon
-                      ] ? (
-                        React.createElement(
-                          LuIcons[
-                            areas.find((area) => area.id === selectedArea)?.icon
-                          ],
-                          { size: "16px" }
-                        )
-                      ) : (
-                        <LuIcons.LuGroup size="16px" />
-                      )
-                    ) : (
-                      <LuIcons.LuGroup size="16px" />
-                    )
-                  }
-                  iconSpacing={1}
-                  size="sm"
-                  w="100%"
-                  h="2.5rem"
-                  borderWidth={1}
-                  borderColor={`var(--chakra-colors-chakra-border-color)`}
-                  _focusVisible="none"
-                  _hover={{
-                    bg: "none",
-                    borderColor:
-                      colorMode === "light"
-                        ? "#CBD5E0"
-                        : "rgba(255, 255, 255, 0.24)",
-                  }}
+                  <Menu closeOnSelect={false}>
+                    <MenuButton
+                      as={Button}
+                      size="sm"
+                      w="33.33333%"
+                      h="2.5rem"
+                      variant="ghost"
+                      textAlign="left"
+                      border="1px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                    >
+                      {goalPeriod === "day"
+                        ? "Al día"
+                        : goalPeriod === "week"
+                        ? "A la semana"
+                        : "Al mes"}
+                    </MenuButton>
+                    <MenuList
+                      borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "var(--menu-bg)"
+                          : "rgb(23, 23, 23)"
+                      }
+                    >
+                      <MenuOptionGroup
+                        type="radio"
+                        value={goalPeriod}
+                        onChange={(value) => setGoalPeriod(value)}
+                      >
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="day"
+                        >
+                          Al día
+                        </MenuItemOption>
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="week"
+                        >
+                          A la semana
+                        </MenuItemOption>
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="month"
+                        >
+                          Al més
+                        </MenuItemOption>
+                      </MenuOptionGroup>
+                    </MenuList>
+                  </Menu>
+                </HStack>
+              </FormControl>
+            </HStack>
+
+            {/* Habit repeat */}
+            <HStack>
+              <FormControl>
+                <FormLabel
+                  htmlFor="habit-repeat"
+                  fontSize="xs"
+                  fontWeight={600}
+                  textTransform="uppercase"
+                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
                 >
-                  {selectedArea
-                    ? areas.find((area) => area.id === selectedArea)?.name
-                    : "Área seleccionada"}
-                </MenuButton>
-                <MenuList
-                  borderRadius={themeOptions.borderRadius}
-                  bg={
-                    colorMode === "light" ? "var(--menu-bg)" : "rgb(23, 23, 23)"
-                  }
-                >
-                  <MenuOptionGroup
-                    type="radio"
-                    value={selectedArea}
-                    onChange={(value) => setSelectedArea(value)}
-                  >
-                    {areas.map((area) => (
-                      <MenuItemOption
+                  Repetición
+                </FormLabel>
+                <HStack spacing={4}>
+                  <Menu closeOnSelect={false}>
+                    <MenuButton
+                      as={Button}
+                      size="sm"
+                      w="33.33333%"
+                      h="2.5rem"
+                      variant="ghost"
+                      textAlign="left"
+                      border="1px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                      onChange={(e) => setReminderTime(e.target.value)}
+                    >
+                      {repeatType === "day"
+                        ? "Diario"
+                        : repeatType === "month"
+                        ? "Mensual"
+                        : "Intervalo"}
+                    </MenuButton>
+                    <MenuList
+                      borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "var(--menu-bg)"
+                          : "rgb(23, 23, 23)"
+                      }
+                    >
+                      <MenuOptionGroup
+                        type="radio"
+                        value={repeatType}
+                        onChange={(value) => setRepeatType(value)}
+                      >
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="day"
+                        >
+                          Diario
+                        </MenuItemOption>
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="month"
+                        >
+                          Mensual
+                        </MenuItemOption>
+                        <MenuItemOption
+                          bg={
+                            colorMode === "light"
+                              ? "var(--menu-bg)"
+                              : "rgb(23, 23, 23)"
+                          }
+                          _hover={{
+                            bg:
+                              colorMode === "light"
+                                ? "rgb(237 242 247)"
+                                : "rgba(255, 255, 255, 0.06)",
+                          }}
+                          value="interval"
+                        >
+                          Intervalo
+                        </MenuItemOption>
+                      </MenuOptionGroup>
+                    </MenuList>
+                  </Menu>
+                  {repeatType === "day" && (
+                    <Popover>
+                      <PopoverTrigger>
+                        <Button
+                          as={Button}
+                          size="sm"
+                          w="70%"
+                          h="2.5rem"
+                          variant="ghost"
+                          justifyContent="flex-start"
+                          border="1px solid var(--chakra-colors-chakra-border-color)"
+                          borderRadius={themeOptions.borderRadius}
+                          overflow="hidden"
+                        >
+                          {selectedDays.length > 0
+                            ? selectedDays.join(", ")
+                            : "Seleccionar días"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        borderRadius={themeOptions.borderRadius}
                         bg={
                           colorMode === "light"
                             ? "var(--menu-bg)"
                             : "rgb(23, 23, 23)"
                         }
-                        _hover={{
-                          bg:
-                            colorMode === "light"
-                              ? "rgb(237 242 247)"
-                              : "rgba(255, 255, 255, 0.06)",
-                        }}
-                        key={area.id}
-                        value={area.id}
                       >
-                        {area.name}
-                      </MenuItemOption>
-                    ))}
-                  </MenuOptionGroup>
-                </MenuList>
-              </Menu>
-            </Box>
-            <Box w="50%" my={2}>
-              <FormLabel
-                mb={1}
-                fontSize="xs"
-                textTransform="uppercase"
-                opacity={0.5}
-              >
-                Fecha de comienzo
-              </FormLabel>
-              <Input
-                type="date"
-                size="sm"
-                w="100%"
-                h="2.5rem"
-                borderRadius={themeOptions.borderRadius}
-                borderWidth={1}
-                borderColor={`var(--chakra-colors-chakra-border-color)`}
-                _focusVisible="none"
-                _hover={{
-                  bg: "none",
-                  borderColor:
-                    colorMode === "light"
-                      ? "#CBD5E0"
-                      : "rgba(255, 255, 255, 0.24)",
-                }}
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                }}
-              />
-            </Box>
-          </HStack>
-          <HStack spacing={4}>
-            <Box my={2}>
-              <FormLabel
-                mb={1}
-                fontSize="xs"
-                textTransform="uppercase"
-                opacity={0.5}
-              >
-                Recordatorio
-              </FormLabel>
-              <Input
-                type="time"
-                size="sm"
-                h="2.5rem"
-                borderRadius={themeOptions.borderRadius}
-                borderWidth={1}
-                borderColor={`var(--chakra-colors-chakra-border-color)`}
-                _focusVisible="none"
-                _hover={{
-                  bg: "none",
-                  borderColor:
-                    colorMode === "light"
-                      ? "#CBD5E0"
-                      : "rgba(255, 255, 255, 0.24)",
-                }}
-                value={reminderTime}
-                onChange={(e) => setReminderTime(e.target.value)}
-              />
-            </Box>
-          </HStack>
+                        <PopoverBody px={0} py={2}>
+                          <CheckboxGroup
+                            value={selectedDays}
+                            onChange={setSelectedDays}
+                          >
+                            <Stack direction="column" spacing={0}>
+                              {[
+                                "Lunes",
+                                "Martes",
+                                "Miércoles",
+                                "Jueves",
+                                "Viernes",
+                                "Sábado",
+                                "Domingo",
+                              ].map((day, index) => (
+                                <Checkbox
+                                  px={2}
+                                  py={1}
+                                  key={index}
+                                  value={day}
+                                  _hover={{
+                                    bg:
+                                      colorMode === "light"
+                                        ? "rgb(237 242 247)"
+                                        : "rgba(255, 255, 255, 0.06)",
+                                  }}
+                                >
+                                  {day}
+                                </Checkbox>
+                              ))}
+                            </Stack>
+                          </CheckboxGroup>
+                        </PopoverBody>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  {repeatType === "month" && (
+                    <Input
+                      type="date"
+                      size="sm"
+                      w="70%"
+                      h="2.5rem"
+                      borderRadius={themeOptions.borderRadius}
+                      border="1px solid var(--chakra-colors-chakra-border-color)"
+                      _focusVisible="none"
+                      onChange={(e) => setSelectedMonthDay(e.target.value)}
+                    />
+                  )}
+
+                  {repeatType === "interval" && (
+                    <Menu closeOnSelect={true}>
+                      <MenuButton
+                        as={Button}
+                        size="sm"
+                        w="70%"
+                        h="2.5rem"
+                        variant="ghost"
+                        textAlign="left"
+                        border="1px solid var(--chakra-colors-chakra-border-color)"
+                        borderRadius={themeOptions.borderRadius}
+                        _focusVisible="none"
+                      >
+                        {"Repetir cada " + selectedRepeatInterval}
+                      </MenuButton>
+                      <MenuList
+                        borderRadius={themeOptions.borderRadius}
+                        bg={
+                          colorMode === "light"
+                            ? "var(--menu-bg)"
+                            : "rgb(23, 23, 23)"
+                        }
+                      >
+                        <MenuOptionGroup
+                          type="radio"
+                          value={selectedRepeatInterval}
+                          onChange={(value) => setSelectedRepeatInterval(value)}
+                        >
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="1"
+                          >
+                            Repetir cada 1
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="2"
+                          >
+                            Repetir cada 2
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="3"
+                          >
+                            Repetir cada 3
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="4"
+                          >
+                            Repetir cada 4
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="5"
+                          >
+                            Repetir cada 5
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="6"
+                          >
+                            Repetir cada 6
+                          </MenuItemOption>
+                          <MenuItemOption
+                            bg={
+                              colorMode === "light"
+                                ? "var(--menu-bg)"
+                                : "rgb(23, 23, 23)"
+                            }
+                            _hover={{
+                              bg:
+                                colorMode === "light"
+                                  ? "rgb(237 242 247)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                            }}
+                            value="7"
+                          >
+                            Repetir cada 7
+                          </MenuItemOption>
+                        </MenuOptionGroup>
+                      </MenuList>
+                    </Menu>
+                  )}
+                </HStack>
+              </FormControl>
+            </HStack>
+
+            {/* Habit start on area... */}
+            <HStack spacing={4}>
+              <FormControl>
+                <HStack>
+                  <Box w="50%">
+                    <FormLabel
+                      htmlFor="habit-area"
+                      fontSize="xs"
+                      fontWeight={600}
+                      textTransform="uppercase"
+                      color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                    >
+                      Áreas
+                    </FormLabel>
+                    <Menu closeOnSelect={false}>
+                      <MenuButton
+                        as={Button}
+                        size="sm"
+                        w="100%"
+                        h="2.5rem"
+                        variant="ghost"
+                        textAlign="left"
+                        border="1px solid var(--chakra-colors-chakra-border-color)"
+                        borderRadius={themeOptions.borderRadius}
+                        iconSpacing={2}
+                        _focusVisible="none"
+                        leftIcon={
+                          selectedArea &&
+                          areas.find((area) => area.id === selectedArea)
+                            ?.icon ? (
+                            LuIcons[
+                              areas.find((area) => area.id === selectedArea)
+                                ?.icon
+                            ] ? (
+                              React.createElement(
+                                LuIcons[
+                                  areas.find((area) => area.id === selectedArea)
+                                    ?.icon
+                                ],
+                                { size: "16px" }
+                              )
+                            ) : (
+                              <LuIcons.LuGroup size="16px" />
+                            )
+                          ) : (
+                            <LuIcons.LuGroup size="16px" />
+                          )
+                        }
+                      >
+                        {selectedArea
+                          ? areas.find((area) => area.id === selectedArea)?.name
+                          : "Selecciona área"}
+                      </MenuButton>
+                      <MenuList
+                        borderRadius={themeOptions.borderRadius}
+                        bg={
+                          colorMode === "light"
+                            ? "var(--menu-bg)"
+                            : "rgb(23, 23, 23)"
+                        }
+                      >
+                        <MenuOptionGroup
+                          type="radio"
+                          value={selectedArea}
+                          onChange={(value) => setSelectedArea(value)}
+                        >
+                          {areas.map((area) => (
+                            <MenuItemOption
+                              bg={
+                                colorMode === "light"
+                                  ? "var(--menu-bg)"
+                                  : "rgb(23, 23, 23)"
+                              }
+                              _hover={{
+                                bg:
+                                  colorMode === "light"
+                                    ? "rgb(237 242 247)"
+                                    : "rgba(255, 255, 255, 0.06)",
+                              }}
+                              key={area.id}
+                              value={area.id}
+                            >
+                              {area.icon && LuIcons[area.icon] ? (
+                                <Icon
+                                  as={LuIcons[area.icon]}
+                                  boxSize="16px"
+                                  mr={2}
+                                />
+                              ) : (
+                                <Icon
+                                  as={LuIcons.LuFolder}
+                                  boxSize="16px"
+                                  mr={2}
+                                />
+                              )}
+                              <span>{area.name}</span>
+                            </MenuItemOption>
+                          ))}
+                        </MenuOptionGroup>
+                      </MenuList>
+                    </Menu>
+                  </Box>
+
+                  <Box w="50%">
+                    <FormLabel
+                      htmlFor="habit-start"
+                      fontSize="xs"
+                      fontWeight={600}
+                      textTransform="uppercase"
+                      color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                    >
+                      Fecha de comienzo
+                    </FormLabel>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      size="sm"
+                      h="2.5rem"
+                      border="1px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                      }}
+                    />
+                  </Box>
+                </HStack>
+              </FormControl>
+            </HStack>
+          </VStack>
         </ModalBody>
+
         <ModalFooter p={4}>
           <Button onClick={onClose} mr={3}>
             Cancelar
