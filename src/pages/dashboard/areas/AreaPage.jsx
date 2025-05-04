@@ -26,9 +26,11 @@ import {
   ConfirmationModal,
   NoDataPage,
 } from "../../../routes/index";
+import { useTheme } from "../../../context/ThemeContext";
 
 const AreaPage = ({ areas, setSelectedHabit }) => {
   // Basic experience states
+  const {themeOptions} = useTheme();
   const { colorMode } = useColorMode();
   const { user } = useAuth();
   const toast = useToast();
@@ -182,6 +184,24 @@ const AreaPage = ({ areas, setSelectedHabit }) => {
     <Box
       w="100%"
       minH="100vh"
+      maxH="100vh"
+      overflowY="scroll"
+      sx={{
+        "&::-webkit-scrollbar": {
+          width: "6px",
+        },
+        "&::-webkit-scrollbar-thumb": {
+          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
+          borderRadius: "4px",
+        },
+        "&::-webkit-scrollbar-thumb:hover": {
+          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
+        },
+        "&::-webkit-scrollbar-track": {
+          backgroundColor: "transparent",
+          borderRadius: "4px",
+        },
+      }}
       bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
     >
       <ColumnHeader page="habit" title={getAreaNameById(areaId, areas)} />

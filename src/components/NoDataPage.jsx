@@ -6,6 +6,7 @@ import {
   Text,
   Button,
   useDisclosure,
+  useColorMode,
 } from "@chakra-ui/react";
 import { ModalArea, ModalHabit } from "../routes/index";
 import { useTheme } from "../context/ThemeContext";
@@ -13,6 +14,7 @@ import * as LuIcons from "react-icons/lu";
 
 const NoDataPage = (props) => {
   const { themeOptions } = useTheme();
+  const { colorMode } = useColorMode();
   const {
     isOpen: isModalAreaOpen,
     onOpen: openModalArea,
@@ -32,6 +34,7 @@ const NoDataPage = (props) => {
       justifyContent="center"
       userSelect="none"
       textAlign="center"
+      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
     >
       <Stack mb={2} borderRadius={themeOptions.borderRadius}>
         <Skeleton w="200px" h="40px" borderRadius={themeOptions.borderRadius} />

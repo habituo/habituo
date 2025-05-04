@@ -39,9 +39,9 @@ import { PiMagicWandLight } from "react-icons/pi";
  */
 const ColorRadioCard = (props) => {
   const { themeOptions } = useTheme();
-  const { getInputProps, getRadioProps } = useRadio(props); // Chakra hook for handling radio inputs.
-  const input = getInputProps(); // Gets the actual input props.
-  const checkbox = getRadioProps(); // Gets the props to style the radio as a custom component.
+  const { getInputProps, getRadioProps } = useRadio(props);
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
     <ChakraProvider
@@ -64,7 +64,7 @@ const ColorRadioCard = (props) => {
           pe={0}
           spacing={2}
           _checked={{
-            borderColor: `${props.value}.500`, // Highlight the selected color.
+            borderColor: `${props.value}.500`,
             boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
           }}
         >
@@ -74,7 +74,7 @@ const ColorRadioCard = (props) => {
             bg={`${props.value}.500`}
             borderRadius="full"
           ></Box>
-          <Text as="span" fontSize="sm" fontWeight="medium" whiteSpace="nowrap">
+          <Text as="span" fontSize="sm" fontWeight={400} whiteSpace="nowrap">
             {props.label}
           </Text>
         </HStack>
@@ -95,8 +95,8 @@ ColorRadioCard.propTypes = {
  */
 const FontRadioCard = ({ focusColor, ...props }) => {
   const { getInputProps, getRadioProps } = useRadio(props);
-  const input = getInputProps(); // Input props for accessibility and state.
-  const checkbox = getRadioProps(); // Props for styling the radio button.
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
     <Box as="label">
@@ -109,7 +109,7 @@ const FontRadioCard = ({ focusColor, ...props }) => {
         p={3}
         spacing={0}
         _checked={{
-          borderColor: `${focusColor}.500`, // Border color matches the focus color.
+          borderColor: `${focusColor}.500`,
           boxShadow: `0 0 0 1px var(--chakra-colors-${focusColor}-500)`,
         }}
       >
@@ -119,7 +119,7 @@ const FontRadioCard = ({ focusColor, ...props }) => {
         <Text
           fontSize="xs"
           noOfLines={1}
-          fontWeight="medium"
+          fontWeight={400}
           fontFamily={props.value}
         >
           {props.label}
@@ -245,50 +245,46 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
     <>
       <Button
         as={Button}
-        px={3}
+        p={3}
         w="100%"
         display="flex"
         justifyContent="flex-start"
         fontSize="sm"
-        leftIcon={<PiMagicWandLight size="16px" />}
         onClick={onOpen}
-        variant={isActive === true ? "solid" : "ghost"}
-        colorScheme={isActive === true ? themeOptions.focusColor : ""}
+        variant="unstyled"
+        colorScheme="blackAlpha"
+        leftIcon={<PiMagicWandLight size="16px" />}
         _focusVisible="none"
       >
         Crea tu estilo
       </Button>
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
-        <DrawerContent fontFamily={themeOptions.fontFamily}>
+        <DrawerContent
+          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+          fontFamily={themeOptions.fontFamily}
+        >
           <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px">
+          <DrawerHeader p={4} borderBottomWidth="1px">
             <Text mb={2} fontSize="xl">
-              Personaliza
+              Crea tu estilo
             </Text>
-            <Text
-              w="90%"
-              fontSize="xs"
-              fontWeight="normal"
-              color={`${themeOptions.focusColor}.contrat`}
-            >
+            <Text fontSize="xs" fontWeight={400}>
               Elige el estilo que quieras y crea tu propio diseño.
             </Text>
           </DrawerHeader>
-          <DrawerBody>
-            {/* Color Mode Toggle */}
+          <DrawerBody p={4}>
             <FormControl
               mb={4}
               display="flex"
               alignItems="center"
               justifyContent="space-between"
             >
-              <FormLabel htmlFor="color-mode" mb="0" fontSize="md">
+              <FormLabel htmlFor="color-mode" mb={0} fontSize="md">
                 Modo Día/Noche
               </FormLabel>
               <IconButton
                 fontSize="lg"
-                bg="transparent"
                 onChange={toggleColorMode}
                 onClick={toggleColorMode}
                 size="sm"
@@ -296,8 +292,6 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
                 {colorMode === "light" ? <LuSun /> : <LuMoon />}
               </IconButton>
             </FormControl>
-
-            {/* Focus Color */}
             <FormControl mb={4}>
               <FormLabel fontSize="sm">Color principal</FormLabel>
               <RadioGroup>
@@ -322,7 +316,6 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
               </RadioGroup>
             </FormControl>
 
-            {/* Font Family */}
             <FormControl mb={4}>
               <FormLabel fontSize="sm">Tipografía</FormLabel>
               <RadioGroup
@@ -353,8 +346,6 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
                 </Grid>
               </RadioGroup>
             </FormControl>
-
-            {/* Border Radius */}
             <FormControl>
               <FormLabel fontSize="sm">Bordes: {borderRadius}</FormLabel>
               <Slider
@@ -369,12 +360,9 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
                   handleUpdateTheme();
                 }}
               >
-                {/* Track and thumb */}
                 <SliderTrack h="8px" borderRadius={customTheme.borderRadius}>
                   <SliderFilledTrack bg={`${focusColor}.500`} />
                 </SliderTrack>
-
-                {/* Thumb */}
                 <SliderThumb
                   boxSize="20px"
                   border={`2px solid var(--chakra-colors-${focusColor}-500)`}

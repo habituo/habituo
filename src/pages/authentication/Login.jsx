@@ -129,7 +129,6 @@ const Login = () => {
     <Container
       as="main"
       fontFamily={themeOptions.fontFamily}
-      userSelect="none"
       display="flex"
       justifyContent="center"
       alignItems="center"
@@ -143,28 +142,25 @@ const Login = () => {
         w={{ base: "auto", md: "500px" }}
       >
         <Link href="/">
-          <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
+          <Image src={logo} alt="Logotipo de Habituo App" h="30px" objectFit="contain" />
         </Link>
         <Box textAlign="center">
-          <Text fontSize="xl" fontFamily={themeOptions.fontFamily} fontWeight="600">
+          <Text fontSize="xl" fontWeight={600}>
             Bienvenido/a
           </Text>
-          <Text>Inicia sesión usando tus credenciales</Text>
+          <Text fontSize="md" fontWeight={400}>Inicia sesión usando tus credenciales</Text>
         </Box>
         <FormControl isInvalid={isSubmitted && errors.email}>
           <FormLabel>Correo electrónico</FormLabel>
           <Input
             type="email"
             name="email"
-            size="sm"
-            h="2.5rem"
+            size="md"
             variant="outline"
             value={credentials.email}
             borderRadius={themeOptions.borderRadius}
             onChange={handleChange}
-            _focusVisible={{
-              borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-            }}
+            _focusVisible="none"
           />
           <FormErrorMessage>{errors.email}</FormErrorMessage>
         </FormControl>
@@ -174,15 +170,12 @@ const Login = () => {
             <Input
               type={showPassword ? "text" : "password"}
               name="password"
-              size="sm"
-              h="2.5rem"
+              size="md"
               variant="outline"
               value={credentials.password}
               onChange={handleChange}
               borderRadius={themeOptions.borderRadius}
-              _focusVisible={{
-                borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-              }}
+              _focusVisible="none"
             />
             <InputRightElement>
               <IconButton
@@ -212,6 +205,7 @@ const Login = () => {
             colorScheme={themeOptions.focusColor}
             borderRadius={themeOptions.borderRadius}
             onClick={handleLogin}
+            _focusVisible="none"
           >
             Iniciar sesión
           </Button>
@@ -219,13 +213,14 @@ const Login = () => {
             onClick={signInWithGoogle}
             borderRadius={themeOptions.borderRadius}
             leftIcon={<FaGoogle />}
+            _focusVisible="none"
           >
             Iniciar sesión con Google
           </Button>
         </VStack>
         <HStack>
           <Text>¿No tienes cuenta?</Text>
-          <Link href="/register">Regístrate</Link>
+          <Link href="/register" fontWeight={600} color={themeOptions.focusColor}>Regístrate</Link>
         </HStack>
       </Flex>
     </Container>

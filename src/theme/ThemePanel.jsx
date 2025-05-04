@@ -26,9 +26,9 @@ import customTheme from "./theme";
  * Handles the appearance and interaction of color options.
  */
 const ColorRadioCard = (props) => {
-  const { getInputProps, getRadioProps } = useRadio(props); // Chakra hook for handling radio inputs.
-  const input = getInputProps(); // Gets the actual input props.
-  const checkbox = getRadioProps(); // Gets the props to style the radio as a custom component.
+  const { getInputProps, getRadioProps } = useRadio(props);
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
     <Box as="label">
@@ -44,7 +44,7 @@ const ColorRadioCard = (props) => {
         pe={0}
         spacing={2}
         _checked={{
-          borderColor: `${props.value}.500`, // Highlight the selected color.
+          borderColor: `${props.value}.500`,
           boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
         }}
       >
@@ -68,8 +68,8 @@ const ColorRadioCard = (props) => {
  */
 const FontRadioCard = ({ focusColor, ...props }) => {
   const { getInputProps, getRadioProps } = useRadio(props);
-  const input = getInputProps(); // Input props for accessibility and state.
-  const checkbox = getRadioProps(); // Props for styling the radio button.
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
     <Box as="label">
@@ -82,17 +82,17 @@ const FontRadioCard = ({ focusColor, ...props }) => {
         p={3}
         spacing={0}
         _checked={{
-          borderColor: `${focusColor}.500`, // Border color matches the focus color.
+          borderColor: `${focusColor}.500`,
           boxShadow: `0 0 0 1px var(--chakra-colors-${focusColor}-500)`,
         }}
       >
-        <Text fontFamily={props.value} fontSize="xl" fontWeight="medium">
+        <Text fontFamily={props.value} fontSize="xl" fontWeight={400}>
           Ag
         </Text>
         <Text
           fontSize="xs"
           noOfLines={1}
-          fontWeight="medium"
+          fontWeight={400}
           fontFamily={props.value}
         >
           {props.label}
@@ -107,7 +107,7 @@ const FontRadioCard = ({ focusColor, ...props }) => {
  * Allows users to customize theme options such as color, font, and border radius.
  */
 const ThemePanel = ({ onUpdateTheme }) => {
-  const { updateTheme } = useTheme();
+  const { themeOptions, updateTheme } = useTheme();
   const { colorMode, toggleColorMode } = useColorMode();
 
   // Set defaults values if not localStorage saved
@@ -173,7 +173,6 @@ const ThemePanel = ({ onUpdateTheme }) => {
     "2xl": "2xl",
   };
 
-  // Chakra's `useRadioGroup` hooks for handling radio group behaviors.
   const { getRootProps, getRadioProps } = useRadioGroup({
     name: "color",
     defaultValue: focusColor,
@@ -205,30 +204,24 @@ const ThemePanel = ({ onUpdateTheme }) => {
   }, [focusColor, fontFamily, borderRadius]);
 
   return (
-    <Box p={2}>
-      <VStack spacing={4}>
-        {/* Color Mode Toggle */}
+      <VStack spacing={4} bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}>
         <FormControl
           display="flex"
           alignItems="center"
           justifyContent="space-between"
         >
-          <FormLabel htmlFor="color-mode" mb="0" fontSize="md">
-            Ajustes del tema
+          <FormLabel htmlFor="color-mode" mb={0} fontSize="lg">
+            Crea tu estilo
           </FormLabel>
           <IconButton
             fontSize="lg"
-            bg="transparent"
             onChange={toggleColorMode}
-            //isChecked={colorMode === "dark"}
             onClick={toggleColorMode}
             size="sm"
           >
             {colorMode === "light" ? <LuSun /> : <LuMoon />}
           </IconButton>
         </FormControl>
-
-        {/* Focus Color */}
         <FormControl>
           <FormLabel fontSize="sm">Color principal</FormLabel>
           <RadioGroup>
@@ -253,7 +246,6 @@ const ThemePanel = ({ onUpdateTheme }) => {
           </RadioGroup>
         </FormControl>
 
-        {/* Font Family */}
         <FormControl>
           <FormLabel fontSize="sm">Tipografía</FormLabel>
           <RadioGroup
@@ -285,7 +277,6 @@ const ThemePanel = ({ onUpdateTheme }) => {
           </RadioGroup>
         </FormControl>
 
-        {/* Border Radius */}
         <FormControl>
           <FormLabel fontSize="sm">Bordes: {borderRadius}</FormLabel>
           <Slider
@@ -300,12 +291,9 @@ const ThemePanel = ({ onUpdateTheme }) => {
               handleUpdateTheme();
             }}
           >
-            {/* Track and thumb */}
             <SliderTrack h="8px" borderRadius={customTheme.borderRadius}>
               <SliderFilledTrack bg={`${focusColor}.500`} />
             </SliderTrack>
-
-            {/* Thumb */}
             <SliderThumb
               boxSize="20px"
               border={`2px solid var(--chakra-colors-${focusColor}-500)`}
@@ -313,7 +301,6 @@ const ThemePanel = ({ onUpdateTheme }) => {
           </Slider>
         </FormControl>
       </VStack>
-    </Box>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   VStack,
@@ -14,14 +14,13 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import {
-  getAllHabitsByArea as getAllHabitsByAreaFromDb,
+  getAllHabitsByArea,
   deleteHabit as deleteHabitFromDb,
   skipHabit as skipHabitInDb,
   completeHabit as completeHabitInDb,
   checkFailedHabit as checkFailedHabitInDb,
   getWeekNumber,
 } from "../../../hooks/database";
-import { auth } from "../../../hooks/firebase";
 import { useTheme } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -38,6 +37,8 @@ const AllHabits = ({ setSelectedHabit }) => {
   const { colorMode } = useColorMode();
   const { user } = useAuth();
   const toast = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   // Areas and Habits states
   const [habitToEdit, setHabitToEdit] = useState(null);
@@ -55,102 +56,80 @@ const AllHabits = ({ setSelectedHabit }) => {
     onClose: closeModalHabit,
   } = useDisclosure();
 
-  /**
-   * React useEffect hook that fetches all habits grouped by area for the currently logged-in user
-   * when the component mounts. It uses the `getAllHabitsByAreaFromDb` function to subscribe to
-   * real-time updates from the database. When the data is received, it updates the `habitsByArea` state
-   * and sets the `isLoaded` state to true. The hook returns a cleanup function that unsubscribes
-   * from the Firestore listener when the component unmounts, preventing memory leaks.
-   * @useEffect
-   * @dependency [] - This effect runs only once after the initial render, as it has an empty dependency array.
-   * @returns {Function} A cleanup function that unsubscribes the Firestore listener.
-   */
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) {
+      setIsLoading(false);
+      return;
+    }
 
-    const unsubscribe = getAllHabitsByAreaFromDb((areasData) => {
-      setHabitsByArea(areasData);
+    setIsLoading(true);
+    isMountedRef.current = true;
+
+    const unsubscribe = getAllHabitsByArea((data) => {
+      if (isMountedRef.current) {
+        setHabitsByArea(data);
+        setIsLoading(false);
+      }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      isMountedRef.current = false;
+      unsubscribe();
+    };
+  }, [user?.uid]);
 
-  /**
-   * React useEffect hook that sets up an interval to periodically check for habits that have not been
-   * marked as completed, skipped, or failed for the current day. It iterates through the `habitsByArea` state
-   * and for each habit, it calls the `checkFailedHabitInDb` function. This check is performed every hour (60 * 60 * 1000 milliseconds).
-   * The interval is only set up if `habitsByArea` is not null or undefined and the user is authenticated (`user?.uid` is truthy).
-   * The hook returns a cleanup function that clears the interval when the component unmounts, preventing potential issues.
-   * @useEffect
-   * @dependency {[habitsByArea, user, toast]} - This effect runs when any of these dependencies change.
-   * In particular, it will re-run if `habitsByArea` is initially null and then gets populated with data.
-   * @returns {Function} A cleanup function that clears the interval.
-   */
   useEffect(() => {
+    if (!user?.uid || habitsByArea.length === 0) return;
+
     const interval = setInterval(() => {
-      if (habitsByArea && user?.uid) {
-        habitsByArea.forEach((area) => {
-          area.habits.forEach((habit) => {
-            checkFailedHabitInDb(area.id, habit.id, toast, habit.name);
-          });
+      habitsByArea.forEach((area) => {
+        area.habits.forEach((habit) => {
+          checkFailedHabitInDb(area.id, habit.id, toast, habit.name);
         });
-      }
+      });
     }, 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [habitsByArea, user, toast]);
+  }, [user?.uid, habitsByArea, toast]);
 
-  /**
-   * @function confirmDelete
-   * @desc Opens the confirmation modal and sets the habit to be deleted.
-   * @param {Object} habit - The habit selected for deletion.
-   */
   const confirmDelete = (habit) => {
     setHabitToDelete(habit);
     openDeleteModal();
   };
 
-  // Get order by URL (this logic now needs to be applied to the habits within each area)
   const orderBy = searchParams.get("order_by") || "asc";
   const viewLayout = searchParams.get("layout") || "grid";
 
-  /**
-   * @function handleEdit
-   * @desc Sets the selected habit for editing and opens the edit modal.
-   * @param {Object} habit - The habit selected for editing.
-   */
   const handleEdit = (habit) => {
     setHabitToEdit(habit);
     setSelectedHabit(habit);
     openModalHabit();
   };
 
-  /**
-   * @async
-   * @function handleDelete
-   * @desc Deletes the selected habit using its ID and updates the state.
-   */
   const handleDelete = async () => {
     if (!habitToDelete || !user) return;
 
     try {
       await deleteHabitFromDb(habitToDelete.area, habitToDelete.id);
       setHabitsByArea((prev) =>
-        prev.map((area) => ({
-          ...area,
-          habits: area.habits.filter((h) => h.id !== habitToDelete.id),
-        }))
+        prev.map((area) => {
+          if (area.id !== habitToDelete.area) return area;
+          return {
+            ...area,
+            habits: area.habits.filter((h) => h.id !== habitToDelete.id),
+          };
+        })
       );
       closeDeleteModal();
       toast({
-        title: <Text fontWeight="600">Hábito eliminado</Text>,
+        title: <Text fontWeight={600}>Hábito eliminado</Text>,
         description: `Se eliminó el hábito "${habitToDelete.name}" correctamente.`,
         status: "success",
         position: "bottom",
       });
     } catch (error) {
       toast({
-        title: <Text fontWeight="600">Error al eliminar</Text>,
+        title: <Text fontWeight={600}>Error al eliminar</Text>,
         description: "No se pudo eliminar el hábito. Inténtalo de nuevo.",
         status: "error",
         position: "bottom",
@@ -158,18 +137,10 @@ const AllHabits = ({ setSelectedHabit }) => {
     }
   };
 
-  /**
-   * Handles the action of skipping a habit.
-   * @param {object} habit - The habit object containing the habit's details, including `area`, `id`, and `name`.
-   */
   const handleSkip = (habit) => {
     skipHabitInDb(habit.area, habit.id, toast, habit.name);
   };
 
-  /**
-   * Handles the action of completing a habit.
-   * @param {object | null} habit - The habit object to mark as complete.
-   */
   const handleComplete = (habit) => {
     if (habit) {
       completeHabitInDb(habit.area, habit.id, habit, toast, getWeekNumber);
@@ -198,7 +169,6 @@ const AllHabits = ({ setSelectedHabit }) => {
       minH="100vh"
       maxH="100vh"
       overflowY="scroll"
-      userSelect="none"
       sx={{
         "&::-webkit-scrollbar": {
           width: "6px",
@@ -218,17 +188,19 @@ const AllHabits = ({ setSelectedHabit }) => {
       bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
     >
       <ColumnHeader page="all-habits" title="Todos los hábitos" />
-      {filteredHabitsByArea.length > 0 ? (
+      {isLoading ? (
+        <NoDataPage type="habits" />
+      ) : (
         <VStack p={4} spacing={6} align="stretch">
           {filteredHabitsByArea.map((area) => (
             <div key={area.id}>
               <HStack justify="flex-start">
-                <Text as="h2" fontSize="xl" fontWeight="600">
+                <Text as="h2" fontSize="xl" fontWeight={600}>
                   {area.name}
                 </Text>
                 <Text
                   fontSize="md"
-                  fontWeight="400"
+                  fontWeight={400}
                   color={colorMode === "light" ? "#00000050" : "#ffffff50"}
                 >
                   - {area.habits.length}
@@ -285,8 +257,6 @@ const AllHabits = ({ setSelectedHabit }) => {
             selectedHabit={habitToEdit}
           />
         </VStack>
-      ) : (
-        <NoDataPage type="habits" />
       )}
     </Box>
   );

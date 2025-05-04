@@ -81,12 +81,11 @@ const DeleteAccountButton = () => {
       }
     } else {
       toast({
-        title: <Text fontWeight="600">Sin método de autenticación</Text>,
+        title: <Text fontWeight={600}>Sin método de autenticación</Text>,
         description:
           "No se pudo determinar el método de autenticación para reautenticar.",
         status: "error",
         position: "bottom",
-        isClosable: true,
       });
       return false;
     }
@@ -112,21 +111,19 @@ const DeleteAccountButton = () => {
         await deleteUser(user);
         onClose();
         toast({
-          title: <Text fontWeight="600">Cuenta eliminada</Text>,
+          title: <Text fontWeight={600}>Cuenta eliminada</Text>,
           description: "Tu cuenta ha sido eliminada correctamente.",
           status: "success",
           position: "bottom",
-          isClosable: true,
         });
         navigate("/");
       } catch (error) {
         console.error("Error al eliminar la cuenta:", error);
         toast({
-          title: <Text fontWeight="600">Error al eliminar la cuenta</Text>,
+          title: <Text fontWeight={600}>Error al eliminar la cuenta</Text>,
           description: "No se pudo eliminar la cuenta. Inténtalo de nuevo.",
           status: "error",
           position: "bottom",
-          isClosable: true,
         });
       } finally {
         setLoading(false);
@@ -155,7 +152,7 @@ const DeleteAccountButton = () => {
           borderRadius={themeOptions.borderRadius}
           bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
         >
-          <ModalHeader p={4} fontSize="lg" fontWeight="600">
+          <ModalHeader p={4} fontSize="lg" fontWeight={600}>
             ¿Seguro que quieres eliminar tu cuenta?
           </ModalHeader>
           <ModalBody px={4} fontSize="md">
@@ -163,23 +160,31 @@ const DeleteAccountButton = () => {
             {getAuth().currentUser?.providerData.some(
               (provider) => provider.providerId === "password"
             ) && (
-              <VStack mt={4} spacing={2}>
+              <VStack mt={4} spacing={4}>
                 <FormControl isInvalid={!!authError}>
-                  <FormLabel htmlFor="email">Correo electrónico</FormLabel>
+                  <FormLabel m={0} htmlFor="email">Correo electrónico</FormLabel>
                   <Input
                     id="email"
                     type="email"
                     value={email}
+                    size="md"
+                    variant="outline"
+                    borderRadius={themeOptions.borderRadius}
                     onChange={(e) => setEmail(e.target.value)}
+                    _focusVisible="none"
                   />
                 </FormControl>
                 <FormControl isInvalid={!!authError}>
-                  <FormLabel htmlFor="password">Contraseña</FormLabel>
+                  <FormLabel m={0} htmlFor="password">Contraseña</FormLabel>
                   <Input
                     id="password"
                     type="password"
                     value={password}
+                    size="md"
+                    variant="outline"
+                    borderRadius={themeOptions.borderRadius}
                     onChange={(e) => setPassword(e.target.value)}
+                    _focusVisible="none"
                   />
                   <FormErrorMessage>{authError}</FormErrorMessage>
                 </FormControl>

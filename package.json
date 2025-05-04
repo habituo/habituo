@@ -19,6 +19,7 @@
     "react": "^19.0.0",
     "react-apexcharts": "^1.7.0",
     "react-calendar": "^5.1.0",
+    "react-confetti": "^6.4.0",
     "react-datepicker": "^8.0.0",
     "react-dom": "^19.0.0",
     "react-feather": "^2.0.10",

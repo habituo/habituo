@@ -75,7 +75,6 @@ const RecoverPassword = () => {
         as="main"
         onUpdateTheme={updateTheme}
         fontFamily={themeOptions.fontFamily}
-        userSelect="none"
       >
         <Flex
           h="100vh"
@@ -84,29 +83,28 @@ const RecoverPassword = () => {
           justifyContent="center"
           gap={6}
         >
-          {/* Logo */}
-          <Box>
-            <Link href="/">
-              <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
-            </Link>
-          </Box>
-
-          {/* Heading */}
+          <Link href="/">
+            <Image
+              src={logo}
+              alt="Logotipo de Habituo App"
+              h="30px"
+              objectFit="contain"
+            />
+          </Link>
           <Box>
             <Text
               fontSize="xl"
               textAlign="center"
               fontFamily={themeOptions.fontFamily}
-              fontWeight="600"
+              fontWeight={600}
             >
-              Recupera tu contraseña
+              Recuperar contraseña
             </Text>
-            <Text textAlign="center">
-              Introduce tu correo electrónico y te enviaremos un enlace para
+            <Text textAlign="center" fontSize="md" fontWeight={400}>
+              Introduce tu correo electrónico y enviaremos un enlace para
               restablecer tu contraseña.
             </Text>
           </Box>
-          {/* Form */}
           <FormControl
             display="flex"
             flexDirection="column"
@@ -119,12 +117,10 @@ const RecoverPassword = () => {
                 id="email"
                 type="email"
                 variant="outline"
-                size="sm"
-                h="2.5rem"
+                size="md"
                 value={email}
                 borderRadius={themeOptions.borderRadius}
-                _focus={{ borderColor: themeOptions.focusColor }}
-                _focusVisible={{ borderColor: themeOptions.focusColor }}
+                _focusVisible="none"
                 onChange={(e) => setEmail(e.target.value)}
                 isInvalid={!!errors.email}
               />
@@ -141,10 +137,9 @@ const RecoverPassword = () => {
             </Alert>
           ) : (
             <Button
-              size="md"
+              w="100%"
               colorScheme={themeOptions.focusColor}
               borderRadius={themeOptions.borderRadius}
-              fontSize="sm"
               onClick={handlePasswordReset}
               _focusVisible="none"
             >
@@ -166,7 +161,11 @@ const RecoverPassword = () => {
 
           <HStack alignItems="center" justifyContent="center">
             <Text>¿Ya tienes cuenta?</Text>
-            <Link href="/login" _hover={{ color: themeOptions.focusColor }}>
+            <Link
+              href="/login"
+              fontWeight={600}
+              color={themeOptions.focusColor}
+            >
               Inicia sesión
             </Link>
           </HStack>

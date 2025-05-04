@@ -29,13 +29,20 @@ import {
   Button,
   Link,
   useToast,
+  useColorMode,
 } from "@chakra-ui/react";
 import { LuEye, LuEyeOff } from "react-icons/lu";
 import { FaGoogle } from "react-icons/fa";
 import logo from "../../assets/images/habituo-logo.svg";
+import {
+  createUserDocument,
+  checkUserExists,
+  createDefaultAreas,
+} from "../../hooks/database";
 
 const Register = () => {
   const { themeOptions } = useTheme();
+  const { colorMode } = useColorMode();
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
@@ -75,54 +82,14 @@ const Register = () => {
   };
 
   /**
-   * Creates a user document in Firestore.
-   * @param {string} userId - Firebase user ID.
-   * @param {string} name - User's full name.
-   * @param {string} email - User's email.
-   * @param {string} authProvider - Authentication provider (email/google).
-   */
-  const createUserDocument = async (userId, name, email, authProvider) => {
-    await setDoc(doc(db, "users", userId), {
-      email,
-      name,
-      birthday_date: "", // Empty, user can update later
-      type_account: "basic", // Default free plan
-      registeredAt: serverTimestamp(),
-      subscriptionStatus: "inactive", // Future use for paid plans
-      planExpiresAt: "", // Future subscription expiration
-      authProvider, // To track how the user signed up
-    });
-  };
-
-  /**
-   * Creates default areas for a new user.
-   * @param {string} userId - Firebase user ID.
-   */
-  const createDefaultAreas = async (userId) => {
-    const batch = writeBatch(db);
-    const areasRef = collection(db, "users", userId, "areas");
-    const defaultAreas = ["Mañanas", "Tardes", "Noches"].map((name) => ({
-      icon: `Lu${name}`,
-      name,
-      registeredAt: serverTimestamp(),
-    }));
-    defaultAreas.forEach((area) =>
-      batch.set(doc(areasRef, area.name), {
-        ...area,
-        registeredAt: serverTimestamp(),
-      })
-    );
-    await batch.commit();
-  };
-
-  /**
    * Registers a user using Google Authentication.
    */
   const registerWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const userId = result.user.uid;
-      if (!(await getDoc(doc(db, "users", userId))).exists()) {
+
+      if (!(await checkUserExists(userId))) {
         await createUserDocument(
           userId,
           result.user.displayName || "Usuario",
@@ -218,6 +185,7 @@ const Register = () => {
       justifyContent="center"
       alignItems="center"
       minH="100vh"
+      color={colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"}
     >
       <Flex
         flexDirection="column"
@@ -227,13 +195,25 @@ const Register = () => {
         w={{ base: "auto", md: "500px" }}
       >
         <Link href="/">
-          <Image src={logo} alt="Logo" h="28px" objectFit="contain" />
+          <Image
+            src={logo}
+            alt="Logotipo de Habituo"
+            w="auto"
+            h="30px"
+            objectFit="contain"
+          />
         </Link>
         <Box textAlign="center">
-          <Text fontSize="xl" fontFamily={themeOptions.fontFamily} fontWeight="600">
+          <Text
+            fontSize="xl"
+            fontFamily={themeOptions.fontFamily}
+            fontWeight={600}
+          >
             Bienvenido/a
           </Text>
-          <Text>Regístrate usando tus credenciales</Text>
+          <Text fontSize="md" fontWeight={400}>
+            Regístrate usando tus credenciales
+          </Text>
         </Box>
         {["name", "email"].map((field) => (
           <FormControl key={field} isInvalid={isSubmitted && errors[field]}>
@@ -243,15 +223,11 @@ const Register = () => {
             <Input
               type={field}
               name={field}
-              size="sm"
-              h="2.5rem"
-              variant="outline"
+              size="md"
               value={formData[field]}
               borderRadius={themeOptions.borderRadius}
               onChange={handleInputChange}
-              _focusVisible={{
-                borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-              }}
+              _focusVisible="none"
             />
             <FormErrorMessage>{errors[field]}</FormErrorMessage>
           </FormControl>
@@ -267,22 +243,20 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 name={id}
                 value={formData[id]}
-                variant="outline"
-                size="sm"
-                h="2.5rem"
+                size="md"
                 onChange={handleInputChange}
                 borderRadius={themeOptions.borderRadius}
-                _focusVisible={{
-                  borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-                }}
+                _focusVisible="none"
               />
               <InputRightElement>
                 <IconButton
                   bg="transparent"
                   aria-label="Toggle password visibility"
                   icon={showPassword ? <LuEyeOff /> : <LuEye />}
+                  borderRadius={themeOptions.borderRadius}
                   fontSize="xl"
                   onClick={handleClick}
+                  _hover={{ bg: "transparent" }}
                 />
               </InputRightElement>
             </InputGroup>
@@ -307,7 +281,9 @@ const Register = () => {
         </VStack>
         <HStack>
           <Text>¿Ya tienes cuenta?</Text>
-          <Link href="/login">Inicia sesión</Link>
+          <Link href="/login" fontWeight={600} color={themeOptions.focusColor}>
+            Iniciar sesión
+          </Link>
         </HStack>
       </Flex>
     </Container>

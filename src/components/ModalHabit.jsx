@@ -223,7 +223,6 @@ const ModalHabit = ({ isOpen, onClose, selectedHabit }) => {
     if (user) {
       getAreasFromDb((fetchedAreas) => {
         setAreas(fetchedAreas);
-        // If editing, ensure the selected area is still valid
         if (
           selectedHabit &&
           !fetchedAreas.find((area) => area.id === selectedHabit.area)

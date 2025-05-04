@@ -1,13 +1,17 @@
-//Pages
+// Pages
 export { default as Home } from "../pages/Home";
 export { default as Dashboard } from "../pages/dashboard/Dashboard";
+export { default as DashboardHome } from "../pages/dashboard/DashboardHome";
 export { default as AllAreas } from "../pages/dashboard/sections/AllAreas";
 export { default as AllHabits } from "../pages/dashboard/sections/AllHabits";
 
+// Home
+export { default as TodoList } from "../pages/dashboard/home/TodoList";
+export { default as TimeTracker } from "../pages/dashboard/home/TimeTracker";
+export { default as ActivityTracker } from "../pages/dashboard/home/ActivityTracker";
+export { default as AllContent } from "../pages/dashboard/home/AllContent";
+
 // Pages - Areas
-export { default as Morning } from "../pages/dashboard/areas/Morning";
-export { default as Eveninig } from "../pages/dashboard/areas/Evening";
-export { default as Night } from "../pages/dashboard/areas/Night";
 export { default as AreaPage } from "../pages/dashboard/areas/AreaPage";
 export { default as HabitPage } from "../pages/dashboard/habits/HabitPage";
 
@@ -16,6 +20,7 @@ export { default as Login } from "../pages/authentication/Login";
 export { default as Register } from "../pages/authentication/Register";
 export { default as RecoverPassword } from "../pages/authentication/RecoverPassword";
 export { default as UserProfileSection } from "../pages/authentication/UserProfileSection";
+export { default as EmailVerified } from "../pages/authentication/EmailVerified";
 
 // Theme
 export { default as ThemePanel } from "../theme/ThemePanel";
@@ -32,3 +37,4 @@ export { default as ColumnHeader } from "../pages/dashboard/sections/ColumnHeade
 export { default as LeftColumn } from "../pages/dashboard/sections/LeftColumn";
 export { default as ModalArea } from "../components/ModalArea";
 export { default as ModalHabit } from "../components/ModalHabit";
+export { default as VerifyEmailButton } from "../components/VerifyEmailButton";

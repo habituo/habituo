@@ -19,20 +19,34 @@ import {
   Tab,
   TabPanel,
   TabIndicator,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverCloseButton,
+  Button,
+  useToast,
 } from "@chakra-ui/react";
 import Calendar from "react-calendar";
 import * as LuIcons from "react-icons/lu";
 import { VscFlame } from "react-icons/vsc";
 import { useTheme } from "../../../context/ThemeContext";
 import {
-  getUserId,
   getHabitRecords,
+  getHabitRecordsGroupedByDay,
   getHabitRecordsListener,
+  deleteHabitRecord as deleteHabitInDb,
+  skipHabit as skipHabitInDb,
+  completeHabit as completeHabitInDb,
+  getWeekNumber,
   getAreaNameById,
+  getAreas,
 } from "../../../hooks/database";
 import BarChart from "../../../components/charts/BarChart";
-import HeatMap from "../../../components/charts/HeatMap";
+// import HeatMap from "../../../components/charts/HeatMap";
 import { NoDataPage } from "../../../routes";
+import { useAuth } from "../../../context/AuthContext";
 
 /**
  * Replaces the default navigation icons of the react-calendar with custom SVG icons.
@@ -84,11 +98,13 @@ const HabitStat = ({ label, current, change, icon, unit }) => (
   </Stat>
 );
 
-const HabitPage = ({ habit }) => {
+const HabitPage = ({ habit, userInfo }) => {
   const { colorMode } = useColorMode();
   const [isLoaded, setIsLoaded] = useState(false);
+  const toast = useToast();
   const { themeOptions } = useTheme();
-  const [calendarValue, setCalendarValue] = useState(new Date());
+  const { user } = useAuth();
+  const [areas, setAreas] = useState([]);
   const [habitRecords, setHabitRecords] = useState([]);
   const [stats, setStats] = useState({
     completed: { current: 0, previous: 0, change: 0 },
@@ -98,194 +114,208 @@ const HabitPage = ({ habit }) => {
     total: 0,
   });
 
-  const userId = getUserId();
+  const userId = user.currentUser?.uid;
   const areaId = habit?.area;
   const habitId = habit?.id;
+  const areaName = habit.area;
 
-  const areaName = getAreaNameById(areaId);
+  // Calendar states
+  const [calendarValue, setCalendarValue] = useState(new Date());
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [clickedDate, setClickedDate] = useState(null);
+  const [selectedDateInfo, setSelectedDateInfo] = useState(null);
+  const [calendarKey, setCalendarKey] = useState(0);
 
-  /**
-   * Processes the habit records to calculate and update the statistics state.
-   */
-  const processRecords = useCallback((records) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const processRecords = useCallback(
+    (records) => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    const getRecordsForMonth = (recs, year, month) =>
-      recs.filter(
-        (record) =>
-          record.date?.getFullYear() === year &&
-          record.date?.getMonth() === month
+      const getRecordsForMonth = (recs, year, month) =>
+        recs.filter(
+          (record) =>
+            record.date?.getFullYear() === year &&
+            record.date?.getMonth() === month
+        );
+
+      const currentMonthRecords = getRecordsForMonth(
+        records,
+        currentYear,
+        currentMonth
+      );
+      const previousMonthRecords = getRecordsForMonth(
+        records,
+        previousYear,
+        previousMonth
       );
 
-    const currentMonthRecords = getRecordsForMonth(
-      records,
-      currentYear,
-      currentMonth
-    );
-    const previousMonthRecords = getRecordsForMonth(
-      records,
-      previousYear,
-      previousMonth
-    );
+      const calculateStatusCounts = (recs) => {
+        let completed = 0,
+          failed = 0,
+          skipped = 0;
+        recs.forEach((record) => {
+          if (record.status === "completed") completed++;
+          if (record.status === "failed") failed++;
+          if (record.status === "skipped") skipped++;
+        });
+        return { completed, failed, skipped };
+      };
 
-    const calculateStatusCounts = (recs) => {
-      let completed = 0,
-        failed = 0,
-        skipped = 0;
-      recs.forEach((record) => {
-        if (record.status === "completed") completed++;
-        if (record.status === "failed") failed++;
-        if (record.status === "skipped") skipped++;
-      });
-      return { completed, failed, skipped };
-    };
+      const currentStats = calculateStatusCounts(currentMonthRecords);
+      const previousStats = calculateStatusCounts(previousMonthRecords);
 
-    const currentStats = calculateStatusCounts(currentMonthRecords);
-    const previousStats = calculateStatusCounts(previousMonthRecords);
+      const calculateChange = (current, previous) =>
+        previous === 0 ? 0 : ((current - previous) / previous) * 100;
 
-    const calculateChange = (current, previous) =>
-      previous === 0 ? 0 : ((current - previous) / previous) * 100;
+      const calculateStreak = (recs) => {
+        let currentStreak = 0;
+        let maxStreak = 0;
+        const sortedRecords = recs
+          .slice()
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    const calculateStreak = (recs) => {
-      let currentStreak = 0;
-      let maxStreak = 0;
-      const sortedRecords = recs
-        .slice()
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      for (const record of sortedRecords) {
-        if (record.status === "completed") {
-          currentStreak++;
-          maxStreak = Math.max(maxStreak, currentStreak);
-        } else {
-          currentStreak = 0;
+        if (sortedRecords.length === 0) {
+          return 0;
         }
-      }
-      return maxStreak;
-    };
 
-    setStats({
-      completed: {
-        current: currentStats.completed,
-        previous: previousStats.completed,
-        change: calculateChange(
-          currentStats.completed,
-          previousStats.completed
-        ),
-      },
-      failed: {
-        current: currentStats.failed,
-        previous: previousStats.failed,
-        change: calculateChange(currentStats.failed, previousStats.failed),
-      },
-      skipped: {
-        current: currentStats.skipped,
-        previous: previousStats.skipped,
-        change: calculateChange(currentStats.skipped, previousStats.skipped),
-      },
-      streak: calculateStreak(records),
-      total: records.length,
-    });
-  }, []);
+        for (let i = 0; i < sortedRecords.length; i++) {
+          const record = sortedRecords[i];
+          if (record.status === "completed") {
+            currentStreak = 1;
+            for (let j = i + 1; j < sortedRecords.length; j++) {
+              const prevRecord = sortedRecords[j - 1];
+              const currentDate = new Date(sortedRecords[j].date);
+              const prevDate = new Date(prevRecord.date);
+              const diffInDays =
+                (currentDate.getTime() - prevDate.getTime()) /
+                (1000 * 3600 * 24);
 
-  /**
-   * Fetches habit records using the getHabitRecords function from database.js.
-   */
+              if (diffInDays === 1 && sortedRecords[j].status === "completed") {
+                currentStreak++;
+              } else {
+                break;
+              }
+            }
+            maxStreak = Math.max(maxStreak, currentStreak);
+          }
+        }
+        return maxStreak;
+      };
+
+      setStats({
+        completed: {
+          current: currentStats.completed,
+          previous: previousStats.completed,
+          change: calculateChange(
+            currentStats.completed,
+            previousStats.completed
+          ),
+        },
+        failed: {
+          current: currentStats.failed,
+          previous: previousStats.failed,
+          change: calculateChange(currentStats.failed, previousStats.failed),
+        },
+        skipped: {
+          current: currentStats.skipped,
+          previous: previousStats.skipped,
+          change: calculateChange(currentStats.skipped, previousStats.skipped),
+        },
+        streak: calculateStreak(records),
+        total: records.length,
+      });
+    },
+    [setStats]
+  );
+
   useEffect(() => {
     if (!areaId || !habitId) return;
 
-    const fetchRecords = async () => {
+    const fetchInitialData = async () => {
+      setIsLoaded(false);
       try {
-        const records = await getHabitRecords(areaId, habitId);
-        setHabitRecords(
-          records.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            date: doc.data().timestamp?.toDate() || null,
-          }))
+        const records = await getHabitRecordsGroupedByDay(
+          user?.uid,
+          areaId,
+          habitId
         );
-        processRecords(
-          records.map((doc) => ({
-            ...doc.data(),
-            date: doc.data().timestamp?.toDate() || null,
-          }))
-        );
-        setIsLoaded(true);
+        const formattedRecords = records.map((record) => ({
+          date: record.date,
+          status: record.status,
+          timestamp: record.timestamp,
+        }));
+        setHabitRecords(formattedRecords);
+        processRecords(formattedRecords);
       } catch (error) {
-        console.error("Error fetching habit records:", error);
+        toast({
+          title: (
+            <Text fontWeight={600}>Error al cargar los datos del hábito</Text>
+          ),
+          description: error.message,
+          status: "error",
+          position: "bottom",
+        });
+      } finally {
+        setIsLoaded(true);
       }
     };
 
-    fetchRecords();
-  }, [areaId, habitId, processRecords]);
+    fetchInitialData();
 
-  /**
-   * Sets up a real-time listener for habit records using getHabitRecordsListener.
-   * This will update the habitRecords and recalculate stats whenever the records change.
-   */
+    return () => {};
+  }, [areaId, habitId, processRecords, toast, user?.uid]);
+
   useEffect(() => {
-    if (!areaId || !habitId) return () => {};
+    if (!areaId || !habitId) return;
+
+    setIsLoaded(true);
 
     const unsubscribe = getHabitRecordsListener(
+      user?.uid,
       areaId,
       habitId,
-      (snapshot) => {
-        const records = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().timestamp?.toDate() || null,
-        }));
-        setHabitRecords(records);
-        processRecords(records);
-        setIsLoaded(true);
+      (updatedRecords) => {
+        setHabitRecords(updatedRecords);
+        processRecords(updatedRecords);
       },
       (error) => {
-        console.error("Error listening to habit records:", error);
+        toast({
+          title: <Text fontWeight={600}>Error en los registros</Text>,
+          description: error.message,
+          status: "error",
+          position: "bottom",
+        });
+        setIsLoaded(false);
       }
     );
 
-    return () => unsubscribe();
-  }, [areaId, habitId, processRecords]);
+    return () => {
+      unsubscribe();
+    };
+  }, [areaId, habitId, processRecords, toast, user?.uid]);
 
-  /**
-   * Replaces the calendar icons after the component mounts.
-   */
   useEffect(() => {
     replaceCalendarIcons();
   }, []);
 
-  /**
-   * Custom class names for calendar tiles based on the habit record status for that date.
-   */
   const tileClassName = useCallback(
     ({ date, view }) => {
       if (view === "month" && Array.isArray(habitRecords)) {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, "0");
-        const day = date.getDate().toString().padStart(2, "0");
-        const localDateStr = `${year}-${month}-${day}`;
+        const calendarYear = date.getFullYear();
+        const calendarMonth = date.getMonth();
+        const calendarDay = date.getDate();
 
         const hasRecordWithStatus = (status) =>
           habitRecords.some((record) => {
             if (record.status === status && record.date) {
-              let recordDateLocal;
+              let recordDate;
               if (typeof record.date.toDate === "function") {
-                recordDateLocal = record.date.toDate();
+                recordDate = record.date.toDate();
               } else if (record.date instanceof Date) {
-                recordDateLocal = record.date;
-              } else if (typeof record.date === "string") {
-                recordDateLocal = new Date(record.date);
-                if (isNaN(recordDateLocal.getTime())) {
-                  console.error(
-                    "Error: Fecha de hábito en formato incorrecto:",
-                    record.date
-                  );
-                  return false;
-                }
+                recordDate = record.date;
               } else {
                 console.error(
                   "Error: Tipo de fecha de hábito desconocido:",
@@ -294,16 +324,11 @@ const HabitPage = ({ habit }) => {
                 return false;
               }
 
-              const recordYear = recordDateLocal.getFullYear();
-              const recordMonth = (recordDateLocal.getMonth() + 1)
-                .toString()
-                .padStart(2, "0");
-              const recordDay = recordDateLocal
-                .getDate()
-                .toString()
-                .padStart(2, "0");
-              const recordLocalDateStr = `${recordYear}-${recordMonth}-${recordDay}`;
-              return recordLocalDateStr === localDateStr;
+              return (
+                recordDate.getFullYear() === calendarYear &&
+                recordDate.getMonth() === calendarMonth &&
+                recordDate.getDate() === calendarDay
+              );
             }
             return false;
           });
@@ -317,20 +342,112 @@ const HabitPage = ({ habit }) => {
     [habitRecords]
   );
 
+  const failedIcon =
+    colorMode === "light"
+      ? "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg=="
+      : "data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg==";
+
   const IconComponent = LuIcons[habit.icon];
+
+  const handleDayClick = (date, event) => {
+    setCalendarValue(date);
+    setClickedDate(date);
+    const habitInfo = getHabitStatusForDate(date);
+    setSelectedDateInfo(habitInfo);
+    setTimeout(() => {
+      setPopoverOpen(true);
+    }, 50);
+  };
+
+  const getHabitStatusForDate = (date) => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const day = date.getDate().toString().padStart(2, "0");
+    const formattedDate = `${year}-${month}-${day}`;
+
+    const habitRecord = habitRecords.find((record) => {
+      const recordDate = record.date
+        ? `${record.date.getFullYear()}-${(record.date.getMonth() + 1)
+            .toString()
+            .padStart(2, "0")}-${record.date
+            .getDate()
+            .toString()
+            .padStart(2, "0")}`
+        : null;
+      return recordDate === formattedDate;
+    });
+
+    if (habitRecord) {
+      return habitRecord.status;
+    }
+
+    return null;
+  };
+
+  const handleDelete = (habit) => {
+    if (habit && clickedDate) {
+      deleteHabitInDb(habit.area, habit.id, toast, habit.name, clickedDate);
+      setPopoverOpen(false);
+      setCalendarKey((prevKey) => prevKey + 1);
+    } else {
+      toast({
+        title: <Text fontWeight="600">Error</Text>,
+        description:
+          "No se ha seleccionado ningún hábito para eliminar registros.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
+
+  const handleSkip = (habit) => {
+    if (habit && clickedDate) {
+      skipHabitInDb(habit.area, habit.id, toast, habit.name, clickedDate);
+      setPopoverOpen(false);
+      setCalendarKey((prevKey) => prevKey + 1);
+    } else {
+      toast({
+        title: <Text fontWeight="600">Error</Text>,
+        description: "No se ha seleccionado ningún hábito para saltar.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
+
+  const handleComplete = (habit) => {
+    if (habit && clickedDate) {
+      completeHabitInDb(
+        habit.area,
+        habit.id,
+        habit,
+        toast,
+        getWeekNumber,
+        clickedDate
+      );
+      setPopoverOpen(false);
+      setCalendarKey((prevKey) => prevKey + 1);
+    } else {
+      toast({
+        title: <Text fontWeight="600">Error</Text>,
+        description: "No se ha seleccionado ningún hábito para completar.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
 
   return (
     <>
       {habit ? (
         <Tabs
+          pt={2}
           position="relative"
           variant="unstyled"
           w="100%"
           minH="100vh"
           maxH="100vh"
           bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
-          pt={2}
-          userSelect="none"
           overflowY="scroll"
           sx={{
             "&::-webkit-scrollbar": {
@@ -363,21 +480,36 @@ const HabitPage = ({ habit }) => {
               {habit ? (
                 <>
                   <HStack alignItems="center" spacing={2} marginBottom={2}>
-                    {IconComponent && (
-                      <IconComponent
-                        size="22px"
-                        aria-label={`${habit.name} icon`}
-                      />
-                    )}
+                    <Box
+                      p={2}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderRadius={themeOptions.borderRadius}
+                      backgroundColor={
+                        colorMode === "light" ? "#00000010" : "#ffffff20"
+                      }
+                    >
+                      {IconComponent && (
+                        <IconComponent
+                          size="22px"
+                          aria-label={`${habit.name} icon`}
+                        />
+                      )}
+                    </Box>
                     <Text fontSize="20px" fontWeight="600">
                       {habit.name}
                     </Text>
                   </HStack>
                   <Box
                     p={2}
-                    border="2px solid"
-                    borderColor="var(--chakra-colors-chakra-border-color)"
+                    border="2px solid var(--chakra-colors-chakra-border-color)"
                     borderRadius={themeOptions.borderRadius}
+                    bg={
+                      colorMode === "light"
+                        ? "rgb(255, 255, 255)"
+                        : "rgb(0, 0, 0)"
+                    }
                   >
                     <HStack>
                       <VscFlame size={50} />
@@ -405,9 +537,13 @@ const HabitPage = ({ habit }) => {
                       px={3}
                       py={2}
                       pb={0}
-                      border="2px solid"
-                      borderColor="var(--chakra-colors-chakra-border-color)"
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
                       borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "rgb(255, 255, 255)"
+                          : "rgb(0, 0, 0)"
+                      }
                     >
                       <HabitStat
                         label="Completado"
@@ -421,9 +557,13 @@ const HabitPage = ({ habit }) => {
                       px={3}
                       py={2}
                       pb={0}
-                      border="2px solid"
-                      borderColor="var(--chakra-colors-chakra-border-color)"
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
                       borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "rgb(255, 255, 255)"
+                          : "rgb(0, 0, 0)"
+                      }
                     >
                       <HabitStat
                         label="Fallado"
@@ -437,9 +577,13 @@ const HabitPage = ({ habit }) => {
                       px={3}
                       py={2}
                       pb={0}
-                      border="2px solid"
-                      borderColor="var(--chakra-colors-chakra-border-color)"
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
                       borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "rgb(255, 255, 255)"
+                          : "rgb(0, 0, 0)"
+                      }
                     >
                       <HabitStat
                         label="Saltado"
@@ -453,9 +597,13 @@ const HabitPage = ({ habit }) => {
                       px={3}
                       py={2}
                       pb={0}
-                      border="2px solid"
-                      borderColor="var(--chakra-colors-chakra-border-color)"
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
                       borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "rgb(255, 255, 255)"
+                          : "rgb(0, 0, 0)"
+                      }
                     >
                       <Stat>
                         <StatLabel>Total</StatLabel>
@@ -465,12 +613,75 @@ const HabitPage = ({ habit }) => {
                       </Stat>
                     </Box>
                   </Grid>
-                  <Calendar
-                    className="custom-react-calendar"
-                    onChange={setCalendarValue}
-                    value={calendarValue}
-                    tileClassName={tileClassName}
-                  />
+                  <Popover
+                    isOpen={popoverOpen}
+                    onClose={() => setPopoverOpen(false)}
+                    placement="bottom-start"
+                    closeOnBlur={false}
+                    trigger="click"
+                  >
+                    <PopoverTrigger>
+                      <Box
+                        as="div"
+                        bg={
+                          colorMode === "light"
+                            ? "rgb(255, 255, 255)"
+                            : "rgb(0, 0, 0)"
+                        }
+                        borderRadius={themeOptions.borderRadius}
+                      >
+                        <Calendar
+                          key={calendarKey}
+                          className="custom-react-calendar"
+                          onClickDay={handleDayClick}
+                          value={calendarValue}
+                          tileClassName={tileClassName}
+                        />
+                      </Box>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      borderRadius={themeOptions.borderRadius}
+                      bg={
+                        colorMode === "light"
+                          ? "rgb(255, 255, 255)"
+                          : "rgb(0, 0, 0)"
+                      }
+                    >
+                      <PopoverCloseButton
+                        top={2}
+                        right={2}
+                        borderRadius={themeOptions.borderRadius}
+                      />
+                      <PopoverHeader px={4} py={2} fontWeight={600}>
+                        ¿Qué deseas hacer?
+                      </PopoverHeader>
+                      <PopoverBody px={4}>
+                        <Button
+                          size="sm"
+                          colorScheme="green"
+                          mr={2}
+                          onClick={() => handleComplete(habit)}
+                        >
+                          Completar
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="yellow"
+                          mr={2}
+                          onClick={() => handleSkip(habit)}
+                        >
+                          Saltar
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() => handleDelete(habit)}
+                        >
+                          Borrar
+                        </Button>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
                   <style>
                     {`
               .custom-react-calendar {
@@ -502,11 +713,11 @@ const HabitPage = ({ habit }) => {
               }
               .react-calendar__tile.react-calendar__month-view__days__day {
                 position: relative;
-                height: 38px;
+                height: 35px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                line-height: 38px;
+                line-height: 40px;
                 font-size: 0.9375rem;
                 font-weight: 400;
                 border-radius: var(--chakra-radii-${themeOptions.borderRadius});
@@ -542,7 +753,7 @@ const HabitPage = ({ habit }) => {
                 content: '';
                 position:absolute;
                 top: -6px;
-                background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20x%3D%220px%22%20y%3D%220px%22%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%2C0%2C256%2C256%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-rule%3D%22nonzero%22%20stroke%3D%22none%22%20stroke-width%3D%221%22%20stroke-linecap%3D%22butt%22%20stroke-linejoin%3D%22miter%22%20stroke-miterlimit%3D%2210%22%20stroke-dasharray%3D%22%22%20stroke-dashoffset%3D%220%22%20font-family%3D%22none%22%20font-weight%3D%22none%22%20font-size%3D%22none%22%20text-anchor%3D%22none%22%20style%3D%22mix-blend-mode%3A%20normal%22%3E%3Cg%20transform%3D%22scale(3.55556%2C3.55556)%22%3E%3Cpath%20d%3D%22M19%2C15c-1.023%2C0%20-2.04812%2C0.39087%20-2.82812%2C1.17188c-1.562%2C1.562%20-1.562%2C4.09425%200%2C5.65625l14.17188%2C14.17188l-14.17187%2C14.17188c-1.562%2C1.562%20-1.562%2C4.09425%200%2C5.65625c0.78%2C0.78%201.80513%2C1.17188%202.82813%2C1.17188c1.023%2C0%202.04812%2C-0.39088%202.82813%2C-1.17187l14.17188%2C-14.17187l14.17188%2C14.17188c1.56%2C1.562%204.09525%2C1.562%205.65625%2C0c1.563%2C-1.563%201.563%2C-4.09325%200%2C-5.65625l-14.17187%2C-14.17187l14.17188%2C-14.17187c1.562%2C-1.562%201.562%2C-4.09425%200%2C-5.65625c-1.56%2C-1.561%20-4.09625%2C-1.562%20-5.65625%2C0l-14.17187%2C14.17188l-14.17187%2C-14.17187c-0.78%2C-0.78%20-1.80513%2C-1.17187%20-2.82812%2C-1.17187z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+                background-image: url(${failedIcon});
                 background-position: center;
                 background-size: cover;
                 color: #fff;
@@ -557,18 +768,18 @@ const HabitPage = ({ habit }) => {
             `}
                   </style>
                   <Box
-                    mb=".5rem"
                     p={0}
                     border="2px solid var(--chakra-colors-chakra-border-color)"
                     borderRadius={themeOptions.borderRadius}
+                    bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
                   >
                     <BarChart
-                      userId={userId}
+                      userId={user.currentç?.uid}
                       habitId={habit.id}
                       areaId={habit.area}
                     />
                   </Box>
-                  <Box
+                  {/* <Box
                     p={0}
                     border="2px solid var(--chakra-colors-chakra-border-color)"
                     borderRadius={themeOptions.borderRadius}
@@ -578,7 +789,7 @@ const HabitPage = ({ habit }) => {
                       habitId={habit.id}
                       areaId={habit.area}
                     />
-                  </Box>
+                  </Box> */}
                 </>
               ) : (
                 <VStack
@@ -633,6 +844,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Nombre
@@ -646,6 +862,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Fecha de creación
@@ -672,6 +893,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Recordatorio
@@ -685,6 +911,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Meta a lograr
@@ -704,6 +935,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Repetición
@@ -721,6 +957,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Área
@@ -734,6 +975,11 @@ const HabitPage = ({ habit }) => {
                   pb={1}
                   border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
+                  bg={
+                    colorMode === "light"
+                      ? "rgb(255, 255, 255)"
+                      : "rgb(0, 0, 0)"
+                  }
                 >
                   <Text fontSize="sm" fontWeight={500}>
                     Fecha de comienzo
@@ -754,48 +1000,6 @@ const HabitPage = ({ habit }) => {
                           } del ${year}`;
                         })()
                       : "Sin fecha de comienzo"}
-                  </Text>
-                </Box>
-                <Text mt={2} mb={-4} fontSize="2xl" fontWeight={600}>
-                  Registros
-                </Text>
-                <Box
-                  p={2}
-                  pb={1}
-                  border="2px solid var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <Text fontSize="sm" fontWeight={500}>
-                    Último registro
-                  </Text>
-                  <Text fontSize="xl" fontWeight={600}>
-                    {habit.name}
-                  </Text>
-                </Box>
-                <Box
-                  p={2}
-                  pb={1}
-                  border="2px solid var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <Text fontSize="sm" fontWeight={500}>
-                    Fecha de creación
-                  </Text>
-                  <Text fontSize="xl" fontWeight={600}>
-                    {habit.createdAt
-                      ? `${habit.createdAt
-                          .toDate()
-                          .toLocaleDateString("es-ES", {
-                            day: "2-digit",
-                          })} de ${habit.createdAt
-                          .toDate()
-                          .toLocaleDateString("es-ES", {
-                            month: "long",
-                          })
-                          .replace(/^\w/, (c) =>
-                            c.toUpperCase()
-                          )} de ${habit.createdAt.toDate().getFullYear()}`
-                      : "Sin fecha de creación"}
                   </Text>
                 </Box>
               </VStack>

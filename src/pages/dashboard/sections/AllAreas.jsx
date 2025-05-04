@@ -12,24 +12,26 @@ import {
   NoDataPage,
 } from "../../../routes/index";
 import {
-  SimpleGrid,
   Box,
+  VStack,
+  Spinner,
+  Flex,
+  SimpleGrid,
   Text,
   useDisclosure,
   useColorMode,
   useToast,
-  VStack,
 } from "@chakra-ui/react";
 import { useAuth } from "../../../context/AuthContext";
+import { useTheme } from "../../../context/ThemeContext";
 
 const AllAreas = () => {
-  // Basic experience states
   const { colorMode } = useColorMode();
+  const { themeOptions } = useTheme();
   const { user } = useAuth();
   const toast = useToast();
-
-  // Areas and Habits states
   const [areas, setAreas] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedArea, setSelectedArea] = useState(null);
   const [areaToDelete, setAreaToDelete] = useState(null);
   const [searchParams] = useSearchParams();
@@ -45,50 +47,37 @@ const AllAreas = () => {
   } = useDisclosure();
 
   useEffect(() => {
-    /**
-     * @async
-     * @function fetchAreas
-     * @desc Fetches areas along with their habit counts and updates the state.
-     */
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchAreas = async () => {
+      setIsLoading(true);
       try {
         const areasData = await getAreasWithHabitCounts();
         setAreas(areasData);
       } catch (error) {
-        throw new Error("Error fetching areas:", error);
+        console.error("Error fetching areas with habit counts:", error);
+        setAreas([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchAreas();
-
-    /** @desc Runs when the `user` dependency changes */
   }, [user]);
 
-  /**
-   * @function confirmDelete
-   * @desc Opens the confirmation modal and sets the area to be deleted.
-   * @param {Object} area - The area selected for deletion.
-   */
   const confirmDelete = (area) => {
     setAreaToDelete(area);
     openDeleteModal();
   };
 
-  /**
-   * @function handleEdit
-   * @desc Sets the selected area for editing and opens the edit modal.
-   * @param {Object} area - The area selected for editing.
-   */
   const handleEdit = (area) => {
     setSelectedArea(area);
     openModalArea();
   };
 
-  /**
-   * @async
-   * @function handleDelete
-   * @desc Deletes the selected area using its ID and updates the state.
-   */
   const handleDelete = async () => {
     if (!areaToDelete) return;
 
@@ -99,29 +88,24 @@ const AllAreas = () => {
       );
       closeDeleteModal();
 
-      // Show success toast notification
       toast({
         title: <Text fontWeight="600">Área eliminada</Text>,
         description: `Se eliminó el área "${areaToDelete.name}" correctamente.`,
         status: "success",
         position: "bottom",
-        isClosable: true,
       });
     } catch (error) {
-      // Show error toast notification in case of failure
       toast({
         title: <Text fontWeight="600">Error al eliminar</Text>,
         description: "No se pudo eliminar el área. Inténtalo de nuevo.",
         status: "error",
         position: "bottom",
-        isClosable: true,
       });
     }
   };
 
   const orderBy = searchParams.get("order_by") || "asc";
   const viewLayout = searchParams.get("layout") || "grid";
-
   const sortedAreas = [...areas].sort((a, b) => {
     if (orderBy === "asc") return a.name.localeCompare(b.name);
     if (orderBy === "desc") return b.name.localeCompare(a.name);
@@ -132,10 +116,48 @@ const AllAreas = () => {
     <Box
       w="100%"
       minH="100vh"
+      maxH="100vh"
+      overflowY="scroll"
+      sx={{
+        "&::-webkit-scrollbar": {
+          width: "6px",
+        },
+        "&::-webkit-scrollbar-thumb": {
+          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
+          borderRadius: "4px",
+        },
+        "&::-webkit-scrollbar-thumb:hover": {
+          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
+        },
+        "&::-webkit-scrollbar-track": {
+          backgroundColor: "transparent",
+          borderRadius: "4px",
+        },
+      }}
       bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
     >
       <ColumnHeader page="all-areas" title="Todas las áreas" />
-      {areas.length > 0 ? (
+      {isLoading ? (
+        <Flex
+          justifyContent="center"
+          alignItems="center"
+          minH="97vh"
+          direction="column"
+          gap={4}
+        >
+          <Spinner
+            size="xl"
+            color={themeOptions.focusColor}
+            aria-label="Cargando áreas"
+          />
+          <Text
+            as="h3"
+            fontSize="md"
+          >
+            Cargando áreas...
+          </Text>
+        </Flex>
+      ) : areas.length > 0 ? (
         <VStack p={4} align="stretch">
           <SimpleGrid
             columns={{

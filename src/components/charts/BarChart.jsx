@@ -1,24 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
 import { useTheme } from "../../context/ThemeContext";
-import { getHabitRecordsGroupedByDay } from "../../hooks/database";
+import { getHabitRecordsGroupedByDayListener } from "../../hooks/database";
+import { useColorMode } from "@chakra-ui/react";
 
-/**
- * @component BarChart
- * @description A bar chart component that displays the completion times of a specific habit
- * within a given area for a user. It fetches data from Firestore and uses ApexCharts
- * to render the chart.
- * @param {object} props - The component's props.
- * @param {string} props.userId - The ID of the current user.
- * @param {string} props.areaId - The ID of the area the habit belongs to.
- * @param {string} props.habitId - The ID of the habit to display records for.
- */
 const BarChart = (props) => {
   const { themeOptions } = useTheme();
   const [colorTheme, setColorTheme] = useState("#DD6B20");
   const [records, setRecords] = useState([]);
+  const [filterPeriod, setFilterPeriod] = useState("1W");
+  const { userId, areaId, habitId } = props;
 
-  // Determine border radius based on theme options
+  console.log("Props en BarChart:", { userId, areaId, habitId });
+
   const borderRadius = React.useMemo(() => {
     switch (themeOptions.borderRadius) {
       case "3xl":
@@ -40,41 +34,78 @@ const BarChart = (props) => {
     }
   }, [themeOptions.borderRadius]);
 
-  const { userId, areaId, habitId } = props;
+  const [state, setState] = useState({
+    series: [{ name: "Veces", data: [] }],
+    options: {
+      chart: {
+        width: "100%",
+        height: 300,
+        type: "bar",
+        toolbar: { show: false },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: "80%",
+          borderRadius,
+          borderRadiusApplication: "end",
+        },
+      },
+      dataLabels: { enabled: false },
+      stroke: { show: false },
+      xaxis: {
+        categories: [],
+        labels: {
+          style: { fontFamily: themeOptions.fontFamily, fontSize: "14px" },
+        },
+      },
+      yaxis: {
+        labels: {
+          style: { fontFamily: themeOptions.fontFamily, fontSize: "11px" },
+        },
+      },
+      colors: [colorTheme],
+      fill: { opacity: 1 },
+      tooltip: {
+        enabled: true,
+        followCursor: false,
+        custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+          const category = w.config.xaxis.categories[dataPointIndex];
+          const value = series[seriesIndex][dataPointIndex];
+          return `<div style="padding:5px 8px;background:var(--chakra-colors-${themeOptions.focusColor}-300);color:#fff;border:none;border-radius:${borderRadius}rem;box-shadow:none;">
+            <span style="font-size:12px;font-weight:400;">${category}</span> - <span style="font-size:16px;font-weight:600">${value} veces</span>
+          </div>`;
+        },
+        hideEmptySeries: true,
+        fillSeriesColor: false,
+        theme: true,
+        style: { fontSize: "14px", fontFamily: themeOptions.fontFamily },
+        onDatasetHover: { highlightDataSeries: true },
+        x: { show: true, format: "dd MMM", formatter: undefined },
+        marker: { show: false },
+      },
+    },
+  });
 
-  /**
-   * @function fetchChartRecords
-   * @async
-   * @description Fetches the records for the specified habit, grouped by day,
-   * using the `getHabitRecordsGroupedByDay` function from `database.js`.
-   */
-  const fetchChartRecords = async () => {
-    try {
-      const groupedRecords = await getHabitRecordsGroupedByDay(
-        userId,
-        areaId,
-        habitId
-      );
-      setRecords(groupedRecords);
-    } catch (error) {
-      console.error("Error fetching habit records for the chart:", error);
-    }
-  };
-
-  /**
-   * @useEffect
-   * @description Fetches the habit records when the component mounts or when
-   * the userId, areaId, or habitId changes.
-   */
   useEffect(() => {
-    fetchChartRecords();
+    if (!userId || !areaId || !habitId) return;
+
+    const unsubscribe = getHabitRecordsGroupedByDayListener(
+      userId,
+      areaId,
+      habitId,
+      (updatedRecords) => {
+        setRecords(updatedRecords);
+        console.log("Datos recibidos:", updatedRecords);
+      },
+      (error) => {
+        console.error("Error fetching habit records:", error);
+      }
+    );
+
+    return () => unsubscribe();
   }, [userId, areaId, habitId]);
 
-  /**
-   * @useEffect
-   * @description Updates the chart's color theme based on the `focusColor`
-   * from the theme options.
-   */
   useEffect(() => {
     const colorMap = {
       gray: "#718096",
@@ -91,113 +122,74 @@ const BarChart = (props) => {
     setColorTheme(colorMap[themeOptions.focusColor] || "#DD6B20");
   }, [themeOptions.focusColor]);
 
-  const [state, setState] = useState({
-    series: [
-      {
-        name: "Records",
-        data: records.map((record) => record.times),
-      },
-    ],
-    options: {
-      chart: {
-        width: "100%",
-        height: "300px",
-        type: "bar",
-        toolbar: {
-          show: false,
-        },
-      },
-      plotOptions: {
-        bar: {
-          horizontal: false,
-          columnWidth: "80%",
-          borderRadius: borderRadius,
-          borderRadiusApplication: "end",
-        },
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      stroke: {
-        show: false,
-      },
-      xaxis: {
-        categories: [],
-        labels: {
-          style: {
-            fontFamily: themeOptions.fontFamily,
-            fontSize: "14px",
-          },
-        },
-      },
-      yaxis: {
-        labels: {
-          style: {
-            fontFamily: themeOptions.fontFamily,
-            fontSize: "11px",
-          },
-        },
-      },
-      colors: [colorTheme],
-      fill: {
-        opacity: 1,
-      },
-      tooltip: {
-        custom: function ({ seriesIndex, dataPointIndex, w }) {
-          if (records.length === 0) return "";
+  const generateDateRange = (startDate, endDate) => {
+    const dates = [];
+    let currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      dates.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return dates;
+  };
 
-          const record = records[dataPointIndex];
-          if (!record || !record.date) return "";
+  const chartData = useMemo(() => {
+    const now = new Date();
+    let startDate;
+    let endDate = new Date(now);
 
-          const date = record.date;
-          const formattedDate = date.toLocaleDateString("es-ES", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          });
+    switch (filterPeriod) {
+      case "1D":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 1);
+        endDate = new Date(startDate);
+        break;
+      case "1W":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case "1M":
+        startDate = new Date(now);
+        startDate.setDate(1);
+        break;
+      case "ALL":
+        if (records.length > 0) {
+          const sortedRecords = [...records].sort(
+            (a, b) => a.date.getTime() - b.date.getTime()
+          );
+          startDate = sortedRecords[0].date;
+        } else {
+          startDate = new Date();
+        }
+        break;
+      default:
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+    }
 
-          const value = w.config.series[seriesIndex].data[dataPointIndex];
+    const dateRange = generateDateRange(startDate, endDate);
+    return dateRange.map((date) => {
+      const formattedDate = date.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+      });
+      const recordForDate = records.find(
+        (record) =>
+          record.date?.getFullYear() === date.getFullYear() &&
+          record.date?.getMonth() === date.getMonth() &&
+          record.date?.getDate() === date.getDate()
+      );
+      return { x: formattedDate, y: recordForDate ? recordForDate.times : 0 };
+    });
+  }, [records, filterPeriod]);
 
-          return `
-              <div style="padding: 5px; font-size: 14px;">
-                <strong>${formattedDate}</strong><br />
-                ${value}
-              </div>
-            `;
-        },
-      },
-    },
-  });
-
-  /**
-   * @useEffect
-   * @description Updates the chart's series, y-axis labels, x-axis categories, and colors
-   * whenever the records, colorTheme, or themeOptions change.
-   */
   useEffect(() => {
     setState((prevState) => ({
       ...prevState,
-      series: [
-        {
-          data: records.map((record) => record.times),
-        },
-      ],
+      series: [{ data: chartData?.map((item) => item.y) || [] }],
       options: {
         ...prevState.options,
-        yaxis: {
-          labels: {
-            style: {
-              fontFamily: themeOptions.fontFamily,
-            },
-          },
-        },
         xaxis: {
-          categories: records.map((record) =>
-            record.date.toLocaleDateString("es-ES", {
-              day: "numeric",
-              month: "short",
-            })
-          ),
+          categories: chartData?.map((item) => item.x) || [],
           labels: {
             style: {
               fontFamily: themeOptions.fontFamily,
@@ -207,10 +199,36 @@ const BarChart = (props) => {
         colors: [colorTheme],
       },
     }));
-  }, [records, colorTheme, themeOptions]);
+  }, [chartData, colorTheme, themeOptions]);
 
   return (
-    <div>
+    <div style={{ marginBottom: "-15px" }}>
+      <div className="custom-filter-buttons">
+        <button
+          onClick={() => setFilterPeriod("1D")}
+          style={{ borderRadius: `${borderRadius}rem` }}
+        >
+          1D
+        </button>
+        <button
+          onClick={() => setFilterPeriod("1W")}
+          style={{ borderRadius: `${borderRadius}rem` }}
+        >
+          1S
+        </button>
+        <button
+          onClick={() => setFilterPeriod("1M")}
+          style={{ borderRadius: `${borderRadius}rem` }}
+        >
+          1M
+        </button>
+        <button
+          onClick={() => setFilterPeriod("ALL")}
+          style={{ borderRadius: `${borderRadius}rem` }}
+        >
+          Todo
+        </button>
+      </div>
       <div id="chart">
         <ReactApexChart
           options={state.options}

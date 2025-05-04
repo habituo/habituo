@@ -163,27 +163,12 @@ const ModalArea = ({ isOpen, onClose, selectedArea }) => {
                 />
                 <FormErrorMessage>{error}</FormErrorMessage>
               </FormControl>
-              <Popover>
+              <Popover id="habit-icon" placement="bottom-start">
                 <PopoverTrigger>
-                  <Button
-                    bg={
-                      colorMode === "light"
-                        ? "var(--chakra-colors-gray-200)"
-                        : "var(--chakra-colors-whiteAlpha-200)"
-                    }
-                    _hover={{
-                      bg:
-                        colorMode === "light"
-                          ? "var(--chakra-colors-gray-300)"
-                          : "var(--chakra-colors-whiteAlpha-300)",
-                    }}
-                    fontSize="20px"
-                  >
-                    {React.createElement(LuIcons[selectedIcon])}
-                  </Button>
+                  <Button>{React.createElement(LuIcons[selectedIcon])}</Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  w="fit-content"
+                  p={2}
                   borderRadius={themeOptions.borderRadius}
                   bg={
                     colorMode === "light"
@@ -191,12 +176,25 @@ const ModalArea = ({ isOpen, onClose, selectedArea }) => {
                       : "rgb(23, 23, 23)"
                   }
                 >
-                  <PopoverBody
-                    p={2}
-                    maxH="300px"
-                    overflowY="scroll"
-                    overflowX="hidden"
+                  <Input
+                    placeholder="Buscar icono..."
+                    value={searchIcon}
+                    size="sm"
+                    h="2.5rem"
                     borderRadius={themeOptions.borderRadius}
+                    _focusVisible="none"
+                    onChange={(e) => {
+                      setSearchIcon(e.target.value);
+                      setVisibleIcons(30);
+                    }}
+                  />
+                  <SimpleGrid
+                    columns={5}
+                    spacing={1}
+                    mt={2}
+                    maxH="200px"
+                    overflowY="auto"
+                    overflowX="hidden"
                     userSelect="none"
                     sx={{
                       "&::-webkit-scrollbar": {
@@ -215,66 +213,31 @@ const ModalArea = ({ isOpen, onClose, selectedArea }) => {
                       },
                     }}
                   >
-                    <Input
-                      mb={2}
-                      placeholder="Buscar icono..."
-                      size="sm"
-                      borderRadius={themeOptions.borderRadius}
-                      _focusVisible={{
-                        borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-                      }}
-                      value={searchIcon}
-                      onChange={(e) => setSearchIcon(e.target.value)}
-                    />
-                    <SimpleGrid columns={6} spacing={1}>
-                      {filteredIcons.slice(0, visibleIcons).map((iconName) => {
-                        const IconComponent = LuIcons[iconName];
-                        return (
-                          <Box
-                            key={iconName}
-                            as="button"
-                            p={2}
-                            borderRadius={themeOptions.borderRadius}
-                            border="1px solid"
-                            borderColor={
-                              selectedIcon === iconName
-                                ? themeOptions.focusColor
-                                : "gray.200"
-                            }
-                            onClick={() => {
-                              setSelectedIcon(iconName);
-                            }}
-                            transition=".1s all linear"
-                            bg={
-                              colorMode === "light"
-                                ? "rgb(255, 255, 255)"
-                                : "rgb(0, 0, 0)"
-                            }
-                            _hover={{
-                              bg:
-                                colorMode === "light"
-                                  ? `var(--chakra-colors-${themeOptions.focusColor}-50)`
-                                  : "var(--chakra-colors-blackAlpha-600)",
-                              borderColor: `var(--chakra-colors-${themeOptions.focusColor}-500)`,
-                            }}
-                          >
-                            <IconComponent size="20px" />
-                          </Box>
-                        );
-                      })}
-                    </SimpleGrid>
-                    {visibleIcons < Object.keys(LuIcons).length && (
-                      <Button
-                        size="sm"
-                        mt={2}
-                        onClick={loadMoreIcons}
-                        w="100%"
-                        colorScheme={themeOptions.focusColor}
+                    {filteredIcons.slice(0, visibleIcons).map((iconName) => (
+                      <Box
+                        key={iconName}
+                        as={Button}
+                        onClick={() => setSelectedIcon(iconName)}
+                        p={2}
+                        textAlign="center"
+                        borderRadius={themeOptions.borderRadius}
+                        _hover={{
+                          bg:
+                            colorMode === "light"
+                              ? `${themeOptions.focusColor}.100`
+                              : `${themeOptions.focusColor}.700`,
+                        }}
+                        transition=".1s all linear"
                       >
-                        Ver más iconos
-                      </Button>
-                    )}
-                  </PopoverBody>
+                        {React.createElement(LuIcons[iconName], { size: 20 })}
+                      </Box>
+                    ))}
+                  </SimpleGrid>
+                  {filteredIcons.length > visibleIcons && (
+                    <Button size="sm" mt={2} onClick={loadMoreIcons}>
+                      Cargar más
+                    </Button>
+                  )}
                 </PopoverContent>
               </Popover>
             </HStack>
