@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import { useTheme } from "../context/ThemeContext";
-import customTheme from "./theme";
 import {
   Box,
   Button,
@@ -12,7 +10,6 @@ import {
   Text,
   FormControl,
   FormLabel,
-  RadioGroup,
   useColorMode,
   Slider,
   SliderTrack,
@@ -28,80 +25,58 @@ import {
   useDisclosure,
   DrawerCloseButton,
   IconButton,
-  ChakraProvider,
+  Tooltip,
 } from "@chakra-ui/react";
 import { LuMoon, LuSun } from "react-icons/lu";
 import { PiMagicWandLight } from "react-icons/pi";
+import customTheme from "./theme";
 
-/**
- * Component for custom color radio buttons.
- * Handles the appearance and interaction of color options.
- */
 const ColorRadioCard = (props) => {
-  const { themeOptions } = useTheme();
-  const { getInputProps, getRadioProps } = useRadio(props); // Chakra hook for handling radio inputs.
-  const input = getInputProps(); // Gets the actual input props.
-  const checkbox = getRadioProps(); // Gets the props to style the radio as a custom component.
+  const { getInputProps, getRadioProps } = useRadio(props);
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
-      <ChakraProvider
-        theme={customTheme(
-          themeOptions.focusColor,
-          themeOptions.fontFamily,
-          themeOptions.borderRadius
-        )}
+    <Box as="label">
+      <input {...input} />
+      <HStack
+        {...checkbox}
+        width="100%"
+        cursor="pointer"
+        borderWidth="1px"
+        borderRadius="base"
+        px={3}
+        py={2}
+        pe={0}
+        spacing={2}
+        _checked={{
+          borderColor: `${props.value}.500`,
+          boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
+        }}
       >
-        <Box as="label">
-          <input {...input} />
-          <HStack
-            {...checkbox}
-            width="100%"
-            cursor="pointer"
-            borderWidth="1px"
-            borderRadius="base"
-            px={3}
-            py={2}
-            pe={0}
-            spacing={2}
-            _checked={{
-              borderColor: `${props.value}.500`, // Highlight the selected color.
-              boxShadow: `0 0 0 1px var(--chakra-colors-${props.value}-500)`,
-            }}
-          >
-            <Box
-              w="12px"
-              h="12px"
-              bg={`${props.value}.500`}
-              borderRadius="full"
-            ></Box>
-            <Text
-              as="span"
-              fontSize="sm"
-              fontWeight="medium"
-              whiteSpace="nowrap"
-            >
-              {props.label}
-            </Text>
-          </HStack>
-        </Box>
-      </ChakraProvider>
+        <Box
+          w="12px"
+          h="12px"
+          bg={`${props.value}.500`}
+          borderRadius="full"
+        ></Box>
+        <Text as="span" fontSize="sm" fontWeight={400} whiteSpace="nowrap">
+          {props.label}
+        </Text>
+      </HStack>
+    </Box>
   );
 };
 
-// Definition PropTypes for ColorRadioCard
 ColorRadioCard.propTypes = {
   label: PropTypes.string.isRequired,
   value: PropTypes.string.isRequired,
 };
 
-/**
- * Component for custom font family radio buttons.
- * Displays a preview of each font and allows selection.
- */
 const FontRadioCard = ({ focusColor, ...props }) => {
   const { getInputProps, getRadioProps } = useRadio(props);
-  const input = getInputProps(); // Input props for accessibility and state.
-  const checkbox = getRadioProps(); // Props for styling the radio button.
+  const input = getInputProps();
+  const checkbox = getRadioProps();
 
   return (
     <Box as="label">
@@ -114,17 +89,17 @@ const FontRadioCard = ({ focusColor, ...props }) => {
         p={3}
         spacing={0}
         _checked={{
-          borderColor: `${focusColor}.500`, // Border color matches the focus color.
+          borderColor: `${focusColor}.500`,
           boxShadow: `0 0 0 1px var(--chakra-colors-${focusColor}-500)`,
         }}
       >
-        <Text fontFamily={props.value} fontSize="xl" fontWeight="medium">
+        <Text fontFamily={props.value} fontSize="xl" fontWeight={600}>
           Ag
         </Text>
         <Text
           fontSize="xs"
           noOfLines={1}
-          fontWeight="medium"
+          fontWeight={400}
           fontFamily={props.value}
         >
           {props.label}
@@ -134,255 +109,234 @@ const FontRadioCard = ({ focusColor, ...props }) => {
   );
 };
 
-// Definition PropTypes for FontRadioCard
 FontRadioCard.propTypes = {
   label: PropTypes.string.isRequired,
   value: PropTypes.string.isRequired,
   focusColor: PropTypes.string.isRequired,
 };
 
-/**
- * Main component for the theme configuration panel.
- * Allows users to customize theme options such as color, font, and border radius.
- */
 const CustomThemePanel = ({ onUpdateTheme }) => {
   const { updateTheme, themeOptions } = useTheme();
   const { colorMode, toggleColorMode } = useColorMode();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const location = useLocation();
-  const isActive = location.pathname === "/dashboard/custom-theme";
-
-  // Set defaults values if not localStorage saved
   const defaultFocusColor = "blue";
   const defaultFontFamily = "Inter";
   const defaultBorderRadius = "lg";
+  const currentFocusColor = themeOptions.focusColor || defaultFocusColor;
+  const currentFontFamily = themeOptions.fontFamily || defaultFontFamily;
+  const currentBorderRadius = themeOptions.borderRadius || defaultBorderRadius;
+  const colorOptions = useMemo(
+    () => [
+      "gray",
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "teal",
+      "blue",
+      "cyan",
+      "purple",
+      "pink",
+    ],
+    []
+  );
+  const fontOptions = useMemo(
+    () => ["Outfit", "Inter", "Bricolage Grotesque", "Geist"],
+    []
+  );
+  const borderMapping = useMemo(
+    () => ({
+      none: "none",
+      sm: "sm",
+      md: "md",
+      lg: "lg",
+      xl: "xl",
+      "2xl": "2xl",
+    }),
+    []
+  );
 
-  // Obtener valores de localStorage o usar los predeterminados
-  const [focusColor, setFocusColor] = useState(() => {
-    const storedFocusColor = localStorage.getItem("focusColor");
-    return storedFocusColor || defaultFocusColor;
-  });
+  const handleThemeChange = useCallback(
+    (key, value) => {
+      const newTheme = {
+        focusColor: key === "focusColor" ? value : currentFocusColor,
+        fontFamily: key === "fontFamily" ? value : currentFontFamily,
+        borderRadius: key === "borderRadius" ? value : currentBorderRadius,
+      };
+      updateTheme(newTheme);
 
-  const [fontFamily, setFontFamily] = useState(() => {
-    const storedFontFamily = localStorage.getItem("fontFamily");
-    return storedFontFamily || defaultFontFamily;
-  });
+      localStorage.setItem("focusColor", newTheme.focusColor);
+      localStorage.setItem("fontFamily", newTheme.fontFamily);
+      localStorage.setItem("borderRadius", newTheme.borderRadius);
 
-  const [borderRadius, setBorderRadius] = useState(() => {
-    const storedBorderRadius = localStorage.getItem("borderRadius");
-    return storedBorderRadius || defaultBorderRadius;
-  });
-
-  /**
-   * Updates the global theme context whenever a configuration option changes.
-   */
-  const handleUpdateTheme = () => {
-    updateTheme({
-      focusColor,
-      fontFamily,
-      borderRadius,
-    });
-
-    if (onUpdateTheme) {
-      onUpdateTheme({
-        focusColor,
-        fontFamily,
-        borderRadius,
-      });
-    }
-  };
-
-  // Predefined options for colors, fonts, and border radius.
-  const color = [
-    "gray",
-    "red",
-    "orange",
-    "yellow",
-    "green",
-    "teal",
-    "blue",
-    "cyan",
-    "purple",
-    "pink",
-  ];
-  const fonts = ["Outfit", "Inter", "Bricolage Grotesque", "Geist"];
-  const borderMapping = {
-    none: "none",
-    sm: "sm",
-    md: "md",
-    lg: "lg",
-    xl: "xl",
-    "2xl": "2xl",
-  };
-
-  // Chakra's `useRadioGroup` hooks for handling radio group behaviors.
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name: "color",
-    defaultValue: focusColor,
-    onChange: (value) => {
-      setFocusColor(value);
+      if (onUpdateTheme) {
+        onUpdateTheme(newTheme);
+      }
     },
+    [
+      updateTheme,
+      onUpdateTheme,
+      currentFocusColor,
+      currentFontFamily,
+      currentBorderRadius,
+    ]
+  );
+
+  const {
+    getRootProps: getColorGroupProps,
+    getRadioProps: getColorRadioProps,
+  } = useRadioGroup({
+    name: "color",
+    value: currentFocusColor,
+    onChange: (value) => handleThemeChange("focusColor", value),
   });
+  const colorGroup = getColorGroupProps();
+
   const { getRootProps: getFontGroupProps, getRadioProps: getFontRadioProps } =
     useRadioGroup({
       name: "fontFamily",
-      defaultValue: fontFamily,
-      onChange: (value) => {
-        setFontFamily(value);
-      },
+      value: currentFontFamily,
+      onChange: (value) => handleThemeChange("fontFamily", value),
     });
-  const group = getRootProps();
   const fontGroup = getFontGroupProps();
-
-  useEffect(() => {
-    updateTheme({ focusColor, fontFamily, borderRadius });
-
-    localStorage.setItem("focusColor", focusColor);
-    localStorage.setItem("fontFamily", fontFamily);
-    localStorage.setItem("borderRadius", borderRadius);
-
-    if (onUpdateTheme) {
-      onUpdateTheme({ focusColor, fontFamily, borderRadius });
-    }
-  }, [focusColor, fontFamily, borderRadius]);
+  const currentSliderValue = useMemo(() => {
+    const keys = Object.keys(borderMapping);
+    const index = keys.indexOf(currentBorderRadius);
+    return index !== -1 ? index : keys.indexOf(defaultBorderRadius);
+  }, [currentBorderRadius, borderMapping, defaultBorderRadius]);
 
   return (
     <>
       <Button
-        px={3}
+        as={Button}
+        p={3}
         w="100%"
         display="flex"
         justifyContent="flex-start"
         fontSize="sm"
-        leftIcon={<PiMagicWandLight size="16px" />}
         onClick={onOpen}
-        variant={isActive === true ? "solid" : "ghost"}
-        colorScheme={isActive === true ? themeOptions.focusColor : ""}
+        variant="unstyled"
+        colorScheme="blackAlpha"
+        leftIcon={<PiMagicWandLight size="16px" />}
         _focusVisible="none"
       >
         Crea tu estilo
       </Button>
+
       <Drawer placement="left" onClose={onClose} isOpen={isOpen}>
         <DrawerOverlay />
-        <DrawerContent fontFamily={themeOptions.fontFamily}>
+        <DrawerContent
+          bg={colorMode === "light" ? "gray.100" : "gray.900"}
+          fontFamily={currentFontFamily}
+        >
           <DrawerCloseButton />
-          <DrawerHeader borderBottomWidth="1px">
+          <DrawerHeader p={4} borderBottomWidth="1px">
             <Text mb={2} fontSize="xl">
-              Personaliza
+              Crea tu estilo
             </Text>
-            <Text
-              w="90%"
-              fontSize="xs"
-              fontWeight="normal"
-              color={`${themeOptions.focusColor}.contrat`}
-            >
+            <Text fontSize="xs" fontWeight={400}>
               Elige el estilo que quieras y crea tu propio diseño.
             </Text>
           </DrawerHeader>
-          <DrawerBody>
-            {/* Color Mode Toggle */}
+          <DrawerBody p={4}>
             <FormControl
               mb={4}
               display="flex"
               alignItems="center"
               justifyContent="space-between"
             >
-              <FormLabel htmlFor="color-mode" mb="0" fontSize="md">
+              <FormLabel htmlFor="color-mode" mb={0} fontSize="md">
                 Modo Día/Noche
               </FormLabel>
-              <IconButton
-                fontSize="lg"
-                bg="transparent"
-                onChange={toggleColorMode}
-                onClick={toggleColorMode}
-                size="sm"
+              <Tooltip
+                label={`Cambiar a modo ${
+                  colorMode === "light" ? "oscuro" : "claro"
+                }`}
+                placement="left"
               >
-                {colorMode === "light" ? <LuSun /> : <LuMoon />}
-              </IconButton>
+                <IconButton
+                  icon={colorMode === "light" ? <LuSun /> : <LuMoon />}
+                  onClick={toggleColorMode}
+                  size="sm"
+                  aria-label="Toggle color mode"
+                />
+              </Tooltip>
             </FormControl>
 
-            {/* Focus Color */}
             <FormControl mb={4}>
               <FormLabel fontSize="sm">Color principal</FormLabel>
-              <RadioGroup>
-                <Grid
-                  {...group}
-                  display="grid"
-                  gridTemplateColumns="repeat(3, minmax(0, 1fr))"
-                  gap={1.5}
-                >
-                  {color.map((color) => {
-                    const radio = getRadioProps({ value: color });
-                    return (
-                      <ColorRadioCard
-                        key={color}
-                        {...radio}
-                        value={color}
-                        label={color.charAt(0).toUpperCase() + color.slice(1)}
-                      />
-                    );
-                  })}
-                </Grid>
-              </RadioGroup>
+              <Grid
+                {...colorGroup}
+                display="grid"
+                gridTemplateColumns="repeat(3, minmax(0, 1fr))"
+                gap={1.5}
+              >
+                {colorOptions.map((color) => {
+                  const radio = getColorRadioProps({ value: color });
+                  return (
+                    <ColorRadioCard
+                      key={color}
+                      {...radio}
+                      value={color}
+                      label={color.charAt(0).toUpperCase() + color.slice(1)}
+                    />
+                  );
+                })}
+              </Grid>
             </FormControl>
 
-            {/* Font Family */}
             <FormControl mb={4}>
               <FormLabel fontSize="sm">Tipografía</FormLabel>
-              <RadioGroup
-                value={fontFamily}
-                onChange={(value) => {
-                  setFontFamily(value);
-                  handleUpdateTheme();
-                }}
+              <Grid
+                {...fontGroup}
+                display="grid"
+                gridTemplateColumns="repeat(4, minmax(0, 1fr))"
+                gap={1.5}
               >
-                <Grid
-                  {...fontGroup}
-                  display="grid"
-                  gridTemplateColumns="repeat(4, minmax(0, 1fr))"
-                  gap={1.5}
-                >
-                  {fonts.map((font) => {
-                    const radio = getFontRadioProps({ value: font });
-                    return (
-                      <FontRadioCard
-                        key={font}
-                        {...radio}
-                        value={font}
-                        focusColor={focusColor}
-                        label={font.charAt(0).toUpperCase() + font.slice(1)}
-                      />
-                    );
-                  })}
-                </Grid>
-              </RadioGroup>
+                {fontOptions.map((font) => {
+                  const radio = getFontRadioProps({ value: font });
+                  return (
+                    <FontRadioCard
+                      key={font}
+                      {...radio}
+                      value={font}
+                      focusColor={currentFocusColor}
+                      label={font.charAt(0).toUpperCase() + font.slice(1)}
+                    />
+                  );
+                })}
+              </Grid>
             </FormControl>
 
-            {/* Border Radius */}
             <FormControl>
-              <FormLabel fontSize="sm">Bordes: {borderRadius}</FormLabel>
+              <FormLabel fontSize="sm">Bordes: {currentBorderRadius}</FormLabel>
               <Slider
-                aria-label={`border-${borderRadius}`}
+                aria-label={`border-${currentBorderRadius}`}
                 min={0}
-                max={5}
+                max={Object.keys(borderMapping).length - 1}
                 step={1}
-                defaultValue={Object.keys(borderMapping).indexOf(borderRadius)}
+                value={currentSliderValue}
                 onChange={(value) => {
                   const newRadius = Object.keys(borderMapping)[value];
-                  setBorderRadius(newRadius);
-                  handleUpdateTheme();
+                  handleThemeChange("borderRadius", newRadius);
                 }}
               >
-                {/* Track and thumb */}
                 <SliderTrack h="8px" borderRadius={customTheme.borderRadius}>
-                  <SliderFilledTrack bg={`${focusColor}.500`} />
+                  <SliderFilledTrack bg={`${currentFocusColor}.500`} />
                 </SliderTrack>
-
-                {/* Thumb */}
                 <SliderThumb
                   boxSize="20px"
-                  border={`2px solid var(--chakra-colors-${focusColor}-500)`}
-                />
+                  border={`2px solid var(--chakra-colors-${currentFocusColor}-500)`}
+                >
+                  <Text
+                    fontSize="xs"
+                    fontWeight="bold"
+                    color="white"
+                    transform="translateY(-150%)"
+                  >
+                    {currentBorderRadius}
+                  </Text>
+                </SliderThumb>
               </Slider>
             </FormControl>
           </DrawerBody>
@@ -392,7 +346,6 @@ const CustomThemePanel = ({ onUpdateTheme }) => {
   );
 };
 
-// Definition PropTypes for CustomThemePanel
 CustomThemePanel.propTypes = {
   onUpdateTheme: PropTypes.func,
 };

@@ -1,9 +1,9 @@
-import React from "react";
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import logo from "../assets/images/habituo-logo.svg";
-import { useAuth } from "../context/AuthContext";
+import { useAuthUser } from "../context/AuthUserContext";
 import { useTheme } from "../context/ThemeContext";
-import { UserProfileSection, LogInSection, ThemePanel } from "../routes/index";
-import { PiMagicWandLight } from "react-icons/pi";
+import { UserProfileSection } from "../routes/index";
 import {
   Box,
   Flex,
@@ -11,26 +11,56 @@ import {
   Image,
   HStack,
   IconButton,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverArrow,
-  PopoverBody,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   Button,
+  Drawer,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  DrawerBody,
+  Stack,
+  VStack,
+  useDisclosure,
+  useColorModeValue,
 } from "@chakra-ui/react";
-import * as LuIcons from "react-icons/lu";
+import { LuMenu } from "react-icons/lu";
 
-/**
- * Navbar component that provides navigation links and user authentication controls.
- * Includes a theme settings popover and authentication options.
- */
 const Navbar = () => {
-  const { user } = useAuth(); // Get authentication state
-  const { themeOptions, updateTheme } = useTheme(); // Access theme update function
+  const { user } = useAuthUser();
+  const { themeOptions } = useTheme();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const navigate = useNavigate();
+  const bgColor = useColorModeValue("white", "gray.800");
+  const linkHoverColor = themeOptions.focusColor || "#ff8e3c";
+
+  const handleDrawerOpen = useCallback(() => {
+    onOpen();
+  }, [onOpen]);
+
+  const handleNavigate = useCallback(
+    (path) => {
+      navigate(path);
+      onClose();
+    },
+    [navigate, onClose]
+  );
+
+  const NavLink = ({ children, to }) => (
+    <Link
+      href={to}
+      fontSize={{ base: "xl", md: "lg" }}
+      fontWeight={400}
+      _hover={{ color: linkHoverColor, textDecoration: "none" }}
+      py={{ base: 2, md: 0 }}
+      onClick={(e) => {
+        if (to.startsWith("/") || to.startsWith("#")) {
+          e.preventDefault();
+          handleNavigate(to);
+        }
+      }}
+    >
+      {children}
+    </Link>
+  );
 
   return (
     <>
@@ -40,7 +70,9 @@ const Navbar = () => {
         position="sticky"
         top={0}
         zIndex={10}
-        backdropFilter="blur(100px)"
+        borderColor={useColorModeValue("gray.200", "gray.700")}
+        bg={bgColor}
+        boxShadow="sm"
       >
         <Flex
           alignItems="center"
@@ -48,99 +80,157 @@ const Navbar = () => {
           maxW="7xl"
           mx="auto"
         >
-          {/* Logo section */}
           <Box>
-            <Link href="/">
-              <Image src={logo} alt="Logo" w="145px" objectFit="contain" />
+            <Link href="/" aria-label="Volver a la página de inicio de Habituo">
+              <Image
+                src={logo}
+                alt="Logotipo de Habituo App"
+                w={{ base: "120px", md: "145px" }}
+                objectFit="contain"
+              />
             </Link>
           </Box>
-
-          {/* Navigation links - visible only on medium screens and larger */}
           <HStack as="nav" spacing={6} display={{ base: "none", md: "flex" }}>
-            <Link
-              href="/"
-              fontSize="md"
-              _hover={{ color: useTheme.focusColor }}
-            >
-              Inicio
-            </Link>
-            <Link
-              href="/dashboard"
-              fontSize="md"
-              _hover={{ color: useTheme.focusColor }}
-            >
-              Tablero
-            </Link>
+            <NavLink to="/dashboard">Tablero</NavLink>
+            <NavLink to="/documentation">Documentación</NavLink>
+            <NavLink to="/about">Acerca de</NavLink>
+            <NavLink to="/contact">Contacto</NavLink>
           </HStack>
-
-          {/* Right-side buttons section */}
           <Flex alignItems="center" gap={2}>
-            <HStack spacing={0}>
-              {/* Theme settings button inside a popover */}
-              <Popover>
-                <PopoverTrigger>
-                  <IconButton
-                    w="36px"
-                    h="36px"
-                    bg="transparent"
-                    border="none"
-                    fontSize="xl"
-                    variant="outline"
-                    size="sm"
-                  >
-                    <PiMagicWandLight />
-                  </IconButton>
-                </PopoverTrigger>
-                <PopoverContent
-                  borderRadius="base"
-                  boxShadow="0px 8px 16px color-mix(in srgb, var(--chakra-colors-gray-900) 10%, transparent), 0px 0px 1px color-mix(in srgb, var(--chakra-colors-gray-900) 30%, transparent)"
-                  outline="none"
-                  border="none"
-                >
-                  <PopoverArrow boxShadow="inherit" />
-                  <PopoverBody>
-                    <ThemePanel onUpdateTheme={updateTheme} />
-                  </PopoverBody>
-                </PopoverContent>
-              </Popover>
+            <Box display={{ base: "block", md: "none" }}>
+              <IconButton
+                aria-label="Abrir menú de navegación"
+                icon={<LuMenu />}
+                onClick={handleDrawerOpen}
+                bg="transparent"
+                border="none"
+                borderRadius={themeOptions.borderRadius}
+                fontSize="xl"
+                variant="ghost"
+                size="md"
+                _focusVisible="none"
+              />
+            </Box>
 
-              {/* Mobile menu - visible only on small screens */}
-              <Box display={{ base: "block", md: "none" }}>
-                <Menu>
-                  {({ isOpen }) => (
-                    <>
-                      <MenuButton
-                        as={IconButton}
-                        aria-label="Menu"
-                        icon={isOpen ? <LuIcons.LuX /> : <LuIcons.LuMenu />}
-                        bg="transparent"
-                        border="none"
-                        borderRadius={themeOptions.borderRadius}
-                        fontSize="xl"
-                        variant="outline"
-                        size="sm"
-                      />
-                      <MenuList borderRadius={themeOptions.borderRadius}>
-                        <MenuItem>Inicio</MenuItem>
-                        <MenuItem>Tablero</MenuItem>
-                      </MenuList>
-                    </>
-                  )}
-                </Menu>
-              </Box>
-            </HStack>
-
-            {/* Authentication section: Shows profile if logged in, login button otherwise */}
             {user ? (
               <UserProfileSection />
             ) : (
-              <Button size="sm" h="36px" userSelect="none" onClick={() => (window.location.href = "/login")}>
-                Iniciar sesión
-              </Button>
+              <HStack spacing={3} display={{ base: "none", md: "flex" }}>
+                <Button
+                  px={5}
+                  py={4}
+                  size="md"
+                  variant="outline"
+                  colorScheme={
+                    themeOptions.focusColor.replace(".500", "") || "orange"
+                  }
+                  onClick={() => navigate("/register")}
+                  borderRadius={themeOptions.borderRadius}
+                  _focusVisible="none"
+                >
+                  Crear una cuenta
+                </Button>
+                <Button
+                  px={5}
+                  py={4}
+                  size="md"
+                  variant="solid"
+                  colorScheme={
+                    themeOptions.focusColor.replace(".500", "") || "orange"
+                  }
+                  onClick={() => navigate("/login")}
+                  borderRadius={themeOptions.borderRadius}
+                  _focusVisible="none"
+                >
+                  Iniciar sesión
+                </Button>
+              </HStack>
             )}
           </Flex>
         </Flex>
       </Box>
+
+      <Drawer onClose={onClose} isOpen={isOpen} size="full">
+        <DrawerOverlay />
+        <DrawerContent bg={bgColor} borderRadius="0">
+          <DrawerCloseButton
+            top={4}
+            right={4}
+            fontSize="xl"
+            borderRadius={themeOptions.borderRadius}
+            _focusVisible="none"
+          />
+          <DrawerBody p={4}>
+            <VStack
+              h="100%"
+              pt={6}
+              alignItems="center"
+              justifyContent="center"
+              gap={8}
+            >
+              <Box mb={8}>
+                <Link
+                  href="/"
+                  onClick={() => onClose()}
+                  aria-label="Volver a la página de inicio de Habituo"
+                >
+                  <Image
+                    src={logo}
+                    alt="Logotipo de Habituo App"
+                    w="180px"
+                    objectFit="contain"
+                  />
+                </Link>
+              </Box>
+              <Stack
+                spacing={6}
+                fontSize="2xl"
+                textAlign="center"
+                direction="column"
+              >
+                <NavLink to="/dashboard">Tablero</NavLink>
+                <NavLink to="/documentation">Documentación</NavLink>
+                <NavLink to="/about">Acerca de</NavLink>
+                <NavLink to="/contact">Contacto</NavLink>
+
+                {!user && (
+                  <>
+                    <Button
+                      mt={4}
+                      px={5}
+                      py={4}
+                      size="lg"
+                      variant="outline"
+                      colorScheme={
+                        themeOptions.focusColor.replace(".500", "") || "orange"
+                      }
+                      onClick={() => handleNavigate("/register")}
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                    >
+                      Crear una cuenta
+                    </Button>
+                    <Button
+                      px={5}
+                      py={4}
+                      size="lg"
+                      variant="solid"
+                      colorScheme={
+                        themeOptions.focusColor.replace(".500", "") || "orange"
+                      }
+                      onClick={() => handleNavigate("/login")}
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                    >
+                      Iniciar sesión
+                    </Button>
+                  </>
+                )}
+              </Stack>
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 };

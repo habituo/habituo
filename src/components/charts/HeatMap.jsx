@@ -1,17 +1,32 @@
 import React, { useState, useEffect } from "react";
 import ReactApexChart from "react-apexcharts";
 import { useTheme } from "../../context/ThemeContext";
+import { getHabitRecordsGroupedByDay } from "../../hooks/database";
 
-const generateData = (count, { min, max }) => {
-  return Array.from(
-    { length: count },
-    () => Math.floor(Math.random() * (max - min + 1)) + min
-  );
-};
-
-const HeatMap = () => {
+const HeatMap = (props) => {
   const { themeOptions } = useTheme();
   const [colorTheme, setColorTheme] = useState("#DD6B20");
+  const [heatmapSeries, setHeatmapSeries] = useState([]);
+  const { userId, areaId, habitId } = props;
+
+  const fetchChartRecords = async () => {
+    try {
+      const groupedRecords = await getHabitRecordsGroupedByDay(
+        userId,
+        areaId,
+        habitId
+      );
+
+      const transformedSeries = transformRecordsToHeatmapSeries(groupedRecords);
+      setHeatmapSeries(transformedSeries);
+    } catch (error) {
+      
+    }
+  };
+
+  useEffect(() => {
+    fetchChartRecords();
+  }, [userId, areaId, habitId]);
 
   useEffect(() => {
     const colorMap = {
@@ -26,36 +41,167 @@ const HeatMap = () => {
       purple: "#9F7AEA",
       pink: "#ED64A6",
     };
-
     setColorTheme(colorMap[themeOptions.focusColor] || "#DD6B20");
   }, [themeOptions.focusColor]);
 
   const [state, setState] = useState({
-    series: [
-      { name: "Metric1", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric2", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric3", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric4", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric5", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric6", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric7", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric8", data: generateData(18, { min: 0, max: 90 }) },
-      { name: "Metric9", data: generateData(18, { min: 0, max: 90 }) },
-    ],
+    series: [],
     options: {
       chart: {
-        height: 350,
+        width: "100%",
+        height: "500px",
         type: "heatmap",
+        toolbar: {
+          show: false,
+        },
+      },
+      plotOptions: {
+        heatmap: {
+          horizontal: false,
+          radius: 0,
+          
+        },
       },
       dataLabels: {
         enabled: false,
       },
+      stroke: {
+        show: false,
+      },
       colors: [colorTheme],
-      title: {
-        text: "HeatMap Chart (Single color)",
+      fill: {
+        opacity: 1,
+      },
+      xaxis: {
+        categories: [],
+      },
+      yaxis: {
+        labels: {
+          style: {
+            fontFamily: themeOptions.fontFamily,
+          },
+        },
+      },
+      grid: {
+        show: false,
+      },
+      tooltip: {
+        enabled: false,
       },
     },
   });
+
+  const transformRecordsToHeatmapSeries = (groupedRecords) => {
+    if (!groupedRecords || groupedRecords.length === 0) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const dateLabels = Array.from({ length: daysInMonth }, (_, i) => {
+        const date = new Date(year, month, i + 1);
+        return date.toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "short",
+        });
+      });
+      const daysOfWeek = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+      return dateLabels.map((dateLabel) => ({
+        name: dateLabel,
+        data: daysOfWeek.map((day) => ({ x: day, y: 0 })),
+      }));
+    }
+
+    groupedRecords.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const allDates = groupedRecords.map((record) => record.date);
+    const minDate = new Date(Math.min(...allDates));
+    const maxDate = new Date(Math.max(...allDates));
+
+    const startYear = minDate.getFullYear();
+    const startMonth = minDate.getMonth();
+    const endYear = maxDate.getFullYear();
+    const endMonth = maxDate.getMonth();
+
+    const allMonthDays = [];
+    for (let year = startYear; year <= endYear; year++) {
+      const startMonthIter = year === startYear ? startMonth : 0;
+      const endMonthIter = year === endYear ? endMonth : 11;
+
+      for (let month = startMonthIter; month <= endMonthIter; month++) {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+          allMonthDays.push(new Date(year, month, day));
+        }
+      }
+    }
+
+    const uniqueFormattedDates = [
+      ...new Set(
+        allMonthDays.map((date) =>
+          date.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+        )
+      ),
+    ].sort((a, b) => {
+      const dateA = new Date(a.split(" ")[1], parseInt(a.split(" ")[0]), 1);
+      const dateB = new Date(b.split(" ")[1], parseInt(b.split(" ")[0]), 1);
+      return (
+        dateA.getTime() - dateB.getTime() ||
+        parseInt(a.split(" ")[0]) - parseInt(b.split(" ")[0])
+      );
+    });
+
+    const daysOfWeek = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+    const heatmapData = uniqueFormattedDates.map((dateLabel) => ({
+      name: dateLabel,
+      data: daysOfWeek.map((day) => ({ x: day, y: 0 })),
+    }));
+
+    groupedRecords.forEach((record) => {
+      const recordDateLabel = record.date.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+      });
+      const dayOfWeek = daysOfWeek[record.date.getDay()];
+      const dateIndex = uniqueFormattedDates.indexOf(recordDateLabel);
+
+      if (heatmapData[dateIndex]) {
+        const dayDataIndex = heatmapData[dateIndex].data.findIndex(
+          (d) => d.x === dayOfWeek
+        );
+        if (dayDataIndex !== -1) {
+          heatmapData[dateIndex].data[dayDataIndex].y = record.times;
+        }
+      }
+    });
+
+    return heatmapData;
+  };
+
+  useEffect(() => {
+    setState((prevState) => ({
+      ...prevState,
+      series: heatmapSeries,
+      options: {
+        ...prevState.options,
+        xaxis: {
+          categories: heatmapSeries[0]?.data?.map((d) => d.x) || [],
+          labels: {
+            style: {
+              fontFamily: themeOptions.fontFamily,
+            },
+          },
+        },
+        yaxis: {
+          labels: {
+            style: {
+              fontFamily: themeOptions?.fontFamily,
+            },
+          },
+        },
+      },
+    }));
+  }, [heatmapSeries, themeOptions]);
 
   useEffect(() => {
     setState((prevState) => ({
@@ -65,15 +211,13 @@ const HeatMap = () => {
   }, [colorTheme]);
 
   return (
-    <div>
-      <div id="chart">
-        <ReactApexChart
-          options={state.options}
-          series={state.series}
-          type="heatmap"
-          height={350}
-        />
-      </div>
+    <div id="chart">
+      <ReactApexChart
+        options={state.options}
+        series={state.series}
+        type="heatmap"
+        height={500}
+      />
     </div>
   );
 };

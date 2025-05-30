@@ -1,19 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
 import { useTheme } from "../../../context/ThemeContext";
+import { useAuthUser } from "../../../context/AuthUserContext";
 import {
-  collection,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  getDoc,
-} from "firebase/firestore";
-import { auth, db } from "../../../hooks/firebase";
-import { signOut } from "firebase/auth";
-import {
+  Skeleton,
+  Link,
   HStack,
-  Box,
   Flex,
   Avatar,
   Text,
@@ -22,474 +14,590 @@ import {
   PopoverTrigger,
   PopoverContent,
   PopoverBody,
-  useColorMode,
   VStack,
+  useColorMode,
   useToast,
   useDisclosure,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
+  Image,
+  IconButton,
+  Tooltip,
+  Divider,
+  Center,
+  Spinner,
+  Spacer,
 } from "@chakra-ui/react";
+import { deleteAreaById, getAreas } from "../../../hooks/database";
+import HabituoLogo from "../../../assets/images/habituo-logo.svg";
 import ModalWithTabs from "./ModalWithTabs";
 import * as LuIcons from "react-icons/lu";
-import { FiPlus } from "react-icons/fi";
 import {
   CustomThemePanel,
-  ModalCreateArea,
-  ModalCreateHabitArea,
+  ModalArea,
+  ModalHabit,
+  ConfirmationModal,
 } from "../../../routes/index";
 
-const LeftColumn = ({ userInfo }) => {
-  const [userData, setUserData] = useState(null);
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [areas, setAreas] = useState([]);
+const LeftColumn = () => {
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { areaId } = useParams();
+  const { user, loading, logout } = useAuthUser();
+  const [areas, setAreas] = useState([]);
+  const [loadingAreas, setLoadingAreas] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedArea, setSelectedArea] = useState(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState({
+    x: 0,
+    y: 0,
+  });
+  const [isContextMenuVisible, setContextMenuVisible] = useState(false);
+
+  const contextMenuRef = useRef(null);
+
+  const {
+    isOpen: isOpenCreateHabitModal,
+    onOpen: onOpenCreateHabitModal,
+    onClose: onCloseCreateHabitModal,
+  } = useDisclosure();
+
+  const isHomeActive = location.pathname === "/dashboard";
   const isHabitsActive = location.pathname === "/dashboard/all-habits";
   const isAreasActive = location.pathname === "/dashboard/all-areas";
+
   const {
     isOpen: isOpenDeleteDialog,
     onOpen: onOpenDeleteDialog,
     onClose: onCloseDeleteDialog,
   } = useDisclosure();
   const {
-    isOpen: isOpenCreateModal,
-    onOpen: onOpenCreateModal,
-    onClose: onCloseCreateModal,
+    isOpen: isProfileModalOpen,
+    onOpen: onOpenProfileModal,
+    onClose: onCloseProfileModal,
   } = useDisclosure();
   const {
-    isOpen: isOpenCreateHabitModal,
-    onOpen: onOpenCreateHabitModal,
-    onClose: onCloseCreateHabitModal,
+    isOpen: isLogoutConfirmationOpen,
+    onOpen: onOpenLogoutConfirmation,
+    onClose: onCloseLogoutConfirmation,
   } = useDisclosure();
-  const [selectedArea, setSelectedArea] = useState(null);
-  const [contextMenuPosition, setContextMenuPosition] = useState({
-    x: 0,
-    y: 0,
-  });
-  const [isContextMenuVisible, setContextMenuVisible] = useState(false); // Para controlar la visibilidad del menú
-  const { areaId } = useParams();
 
-  const contextMenuRef = useRef(null); // Referencia para el menú contextual
-
-  const handleContextMenu = (e, area) => {
-    e.preventDefault(); // Evita el menú del navegador
-    setSelectedArea(area);
-    setContextMenuPosition({ x: e.clientX, y: e.clientY }); // Establece la posición del clic derecho
-    setContextMenuVisible(true); // Muestra el menú contextual
-  };
-
-  const handleDelete = () => {
-    if (!selectedArea) return;
-    deleteAreaFromFirestore(selectedArea.id);
-    setContextMenuVisible(false);
-    onCloseDeleteDialog();
-  };
-
-  const deleteAreaFromFirestore = async (areaId) => {
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "areas", areaId));
-    } catch (error) {
-      console.error("Error al eliminar el área:", error);
+  const fetchAreasData = useCallback(() => {
+    if (!user || loading) {
+      setLoadingAreas(false);
+      return () => {};
     }
-  };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast({
-        title: "Sesión cerrada.",
-        description: "Has cerrado sesión exitosamente.",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom",
-      });
-
-      window.location.href = "/";
-    } catch (error) {
-      toast({
-        title: "Error al cerrar sesión.",
-        description: error.message,
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "bottom",
-      });
-    }
-  };
-
-  const fetchUserData = async () => {
-    const user = auth.currentUser;
-
-    if (user) {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        setUserData(userSnap.data());
+    setLoadingAreas(true);
+    const unsubscribe = getAreas(
+      user.uid,
+      (fetchedAreas) => {
+        setAreas(fetchedAreas);
+        setLoadingAreas(false);
+      },
+      (error) => {
+        toast({
+          title: <Text fontWeight={600}>Error al cargar áreas</Text>,
+          description: "No se pudieron cargar tus áreas. Inténtalo de nuevo.",
+          status: "error",
+          position: "bottom",
+        });
+        setLoadingAreas(false);
       }
-    }
-  };
-
-  const fetchAreas = async () => {
-    try {
-      const areasRef = collection(db, "users", userInfo.uid, "areas");
-
-      const unsubscribe = onSnapshot(areasRef, (snapshot) => {
-        const areasList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setAreas(areasList);
-        setLoading(false);
-      });
-
-      return () => unsubscribe();
-    } catch (error) {
-      setLoading(false);
-      throw new Error("Error al obtener las áreas: ", error);
-    }
-  };
-
-  // Function to edit area selected
-  const handleEdit = (area) => {
-    setSelectedArea(area);
-    console.log("Area: ", area);
-    onOpenCreateModal();
-  };
+    );
+    return unsubscribe;
+  }, [user, loading, toast]);
 
   useEffect(() => {
-    fetchUserData();
-    fetchAreas();
-  }, [user]);
+    const unsubscribe = fetchAreasData();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [fetchAreasData]);
 
-  // Detecta clics fuera del menú contextual
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
         contextMenuRef.current &&
         !contextMenuRef.current.contains(e.target)
       ) {
-        setContextMenuVisible(false); // Cierra el menú contextual si se hace clic fuera
+        setContextMenuVisible(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-
-    // Limpia el event listener cuando el componente se desmonte
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  let userName = "";
-  if (userInfo?.displayName) {
-    userName = userInfo.displayName;
-  } else if (userData?.name) {
-    userName = userData.name;
-  } else if (userInfo?.email) {
-    userName = userInfo.email.split("@")[0];
+  const userName =
+    user?.displayName || user?.name || user?.email?.split("@")[0] || "Usuario";
+
+  const userPhotoURL = user?.photoURL
+    ? `//wsrv.nl/?url=${user.photoURL}`
+    : undefined;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: <Text fontWeight={600}>Sesión cerrada</Text>,
+        description: "Has cerrado sesión correctamente.",
+        status: "success",
+        position: "bottom",
+      });
+    } catch (error) {
+      toast({
+        title: <Text fontWeight={600}>Error al cerrar sesión</Text>,
+        description: error.message || "No se pudo cerrar sesión.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
+
+  const handleContextMenu = (e, area) => {
+    e.preventDefault();
+    setSelectedArea(area);
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setContextMenuVisible(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedArea) return;
+    try {
+      await deleteAreaById(selectedArea.id, user.uid);
+      setContextMenuVisible(false);
+      onCloseDeleteDialog();
+      toast({
+        title: <Text fontWeight="600">Área eliminada</Text>,
+        description: "El área ha sido eliminada correctamente.",
+        status: "success",
+        position: "bottom",
+      });
+    } catch (error) {
+      toast({
+        title: <Text fontWeight="600">Error al eliminar el área</Text>,
+        description: error.message,
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
+
+  const handleConfirmLogout = () => {
+    handleLogout();
+    onCloseLogoutConfirmation();
+  };
+
+  const onOpenCreateModal = () => {
+    setSelectedArea(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEdit = (area) => {
+    setSelectedArea(area);
+    setIsCreateModalOpen(true);
+  };
+
+  const onCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setSelectedArea(null);
+  };
+
+  if (loading || !user || loadingAreas) {
+    return (
+      <VStack p={4} w="100%" h="100vh" spacing={4} align="start">
+        <Center w="100%" h="80px">
+          <Spinner size="lg" color={themeOptions.focusColor} />
+        </Center>
+        <Skeleton h="20px" w="80%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="20px" w="70%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="20px" w="60%" borderRadius={themeOptions.borderRadius} />
+        <Divider my={4} />
+        <Skeleton h="30px" w="90%" borderRadius={themeOptions.borderRadius} />
+        <VStack w="100%" spacing={2}>
+          {[...Array(5)].map((_, i) => (
+            <Skeleton
+              key={i}
+              h="40px"
+              w="100%"
+              borderRadius={themeOptions.borderRadius}
+            />
+          ))}
+        </VStack>
+        <Spacer />
+        <Skeleton h="40px" w="100%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="40px" w="100%" borderRadius={themeOptions.borderRadius} />
+      </VStack>
+    );
   }
 
   return (
-    <Box
-      px={2}
-      py={4}
+    <VStack
+      as="nav"
+      aria-label="Panel lateral de navegación"
+      p={2}
       w="100%"
       h="100vh"
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
-      fontFamily={themeOptions.fontFamily}
+      position="relative"
+      alignItems="stretch"
+      justifyContent="stretch"
+      spacing={2}
     >
-      <Popover align="right">
-        <PopoverTrigger>
+      <VStack align="stretch" spacing={1}>
+        <Link p={2} w="100%" href="/" display="flex" justifyContent="center">
+          <Image src={HabituoLogo} h="26px" alt="Logotipo de Habituo App" />
+        </Link>
+        <Popover placement="right-start">
+          <PopoverTrigger>
+            <Button
+              px={2}
+              py={6}
+              w="100%"
+              justifyContent="flex-start"
+              color={colorMode === "light" ? "#000000" : "#ffffff"}
+              _focusVisible="none"
+              aria-label="Perfil de usuario"
+            >
+              <Flex align="center" gap={2} overflow="hidden">
+                <Avatar src={userPhotoURL} name={userName} size="sm" />
+                <VStack alignItems="flex-start" spacing={0} overflow="hidden">
+                  <Text fontSize="sm" fontWeight={600} isTruncated>
+                    {userName}
+                  </Text>
+                  <Text fontSize="xs" fontWeight={400} isTruncated>
+                    {user?.email}
+                  </Text>
+                </VStack>
+              </Flex>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent w="auto" borderRadius={themeOptions.borderRadius}>
+            <PopoverBody p={0} borderRadius={themeOptions.borderRadius}>
+              <VStack align="stretch" spacing={0}>
+                <Button
+                  px={2}
+                  py={4}
+                  justifyContent="flex-start"
+                  size="sm"
+                  leftIcon={<LuIcons.LuUserRound size="16px" />}
+                  variant="ghost"
+                  borderRadius={0}
+                  borderTopRadius={themeOptions.borderRadius}
+                  _focusVisible="none"
+                  onClick={onOpenProfileModal}
+                >
+                  Ver perfil
+                </Button>
+                <Button
+                  px={2}
+                  py={4}
+                  justifyContent="flex-start"
+                  size="sm"
+                  leftIcon={<LuIcons.LuLogOut size="16px" />}
+                  variant="ghost"
+                  borderRadius={0}
+                  borderBottomRadius={themeOptions.borderRadius}
+                  _focusVisible="none"
+                  onClick={onOpenLogoutConfirmation}
+                >
+                  Cerrar sesión
+                </Button>
+              </VStack>
+            </PopoverBody>
+          </PopoverContent>
+        </Popover>
+        <Button
+          as={Button}
+          px={3}
+          w="100%"
+          display="flex"
+          alignItems="center"
+          justifyContent="flex-start"
+          fontSize="sm"
+          onClick={() => navigate("/dashboard")}
+          variant={isHomeActive ? "solid" : "unstyled"}
+          colorScheme={isHomeActive ? themeOptions.focusColor : "blackAlpha"}
+          leftIcon={<LuIcons.LuHouse size="16px" />}
+          _focusVisible="none"
+        >
+          Inicio
+        </Button>
+      </VStack>
+      <Divider />
+      <VStack align="stretch" spacing={1}>
+        <HStack justifyContent="space-between">
+          <Text
+            fontSize="xs"
+            fontWeight={600}
+            textTransform="uppercase"
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
+          >
+            Hábitos
+          </Text>
+          <Tooltip
+            label="Añadir hábito"
+            placement="top"
+            bg={colorMode === "light" ? "black" : "white"}
+            borderRadius={themeOptions.borderRadius}
+            hasArrow
+          >
+            <IconButton size="xs" onClick={onOpenCreateHabitModal}>
+              <LuIcons.LuPlus size="16px" />
+            </IconButton>
+          </Tooltip>
+        </HStack>
+        <VStack spacing={1}>
           <Button
-            px={2}
-            py={6}
+            as={Button}
+            p={3}
             w="100%"
-            bg={
-              colorMode === "light" ? "rgb(236, 236, 236)" : "rgb(50, 50, 50)"
+            display="flex"
+            alignItems="center"
+            justifyContent="flex-start"
+            fontSize="sm"
+            onClick={() => navigate("/dashboard/all-habits")}
+            variant={isHabitsActive ? "solid" : "unstyled"}
+            colorScheme={
+              isHabitsActive ? themeOptions.focusColor : "blackAlpha"
             }
+            leftIcon={<LuIcons.LuClipboardList size="16px" />}
+            _focusVisible="none"
+          >
+            Todos los hábitos
+          </Button>
+        </VStack>
+        <ModalHabit
+          isOpen={isOpenCreateHabitModal}
+          onClose={onCloseCreateHabitModal}
+        />
+      </VStack>
+      <VStack align="stretch" spacing={1}>
+        <HStack alignItems="center" justifyContent="space-between">
+          <Text
+            fontSize="xs"
+            fontWeight={600}
+            textTransform="uppercase"
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
+          >
+            Áreas
+          </Text>
+          <Tooltip
+            label="Añadir área"
+            placement="top"
+            bg={colorMode === "light" ? "black" : "white"}
+            borderRadius={themeOptions.borderRadius}
+            hasArrow
+          >
+            <IconButton size="xs" onClick={onOpenCreateModal}>
+              <LuIcons.LuPlus size="16px" />
+            </IconButton>
+          </Tooltip>
+        </HStack>
+        <VStack
+          maxH="350px"
+          overflow="auto"
+          spacing={1}
+        >
+          <Button
+            as={Button}
+            p={3}
+            w="100%"
+            display="flex"
+            alignItems="center"
+            justifyContent="flex-start"
+            fontSize="sm"
+            onClick={() => navigate("/dashboard/all-areas")}
+            variant={isAreasActive ? "solid" : "unstyled"}
+            colorScheme={isAreasActive ? themeOptions.focusColor : "blackAlpha"}
+            leftIcon={<LuIcons.LuClipboardList size="16px" />}
+            _focusVisible="none"
+          >
+            Todas las áreas
+          </Button>
+          {areas.length === 0 && !loadingAreas ? (
+            <Text fontSize="sm" py={2} textAlign="left">
+              No tienes áreas creadas.
+            </Text>
+          ) : (
+            <VStack w="100%" alignItems="stretch" spacing={1}>
+              {areas.map((area) => {
+                const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
+                return (
+                  <div key={area.id}>
+                    <Button
+                      as={Button}
+                      p={3}
+                      w="100%"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="flex-start"
+                      fontSize="sm"
+                      onClick={() => navigate(`/dashboard/areas/${area.id}`)}
+                      variant={areaId === area.id ? "solid" : "unstyled"}
+                      colorScheme={
+                        areaId === area.id
+                          ? themeOptions.focusColor
+                          : "blackAlpha"
+                      }
+                      leftIcon={<IconComponent size="16px" />}
+                      onContextMenu={(e) => handleContextMenu(e, area)}
+                      _focusVisible="none"
+                    >
+                      {area.name}
+                    </Button>
+                    {isContextMenuVisible &&
+                      selectedArea &&
+                      selectedArea.id === area.id && (
+                        <HStack
+                          ref={contextMenuRef}
+                          position="absolute"
+                          top={contextMenuPosition.y}
+                          left={contextMenuPosition.x}
+                          bg={
+                            colorMode === "light"
+                              ? "gray.100"
+                              : "gray.900"
+                          }
+                          borderRadius={themeOptions.borderRadius}
+                          borderWidth="1px"
+                          zIndex="1000"
+                          display="flex"
+                          flexDirection="column"
+                          alignItems="center"
+                          justifyContent="stretch"
+                          gap={0}
+                        >
+                          <Button
+                            w="100%"
+                            size="sm"
+                            fontWeight={500}
+                            borderRadius={0}
+                            borderTopRadius={themeOptions.borderRadius}
+                            onClick={() => handleEdit(area)}
+                            _focusVisible="none"
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            w="100%"
+                            size="sm"
+                            fontWeight={500}
+                            borderRadius={0}
+                            borderBottomRadius={themeOptions.borderRadius}
+                            onClick={onOpenDeleteDialog}
+                            _focusVisible="none"
+                          >
+                            Eliminar
+                          </Button>
+                        </HStack>
+                      )}
+                  </div>
+                );
+              })}
+            </VStack>
+          )}
+          <ModalArea
+            isOpen={isCreateModalOpen}
+            onClose={() => {
+              setSelectedArea(null);
+              onCloseCreateModal();
+            }}
+            selectedArea={selectedArea}
+          />
+          <ConfirmationModal
+            isOpen={isLogoutConfirmationOpen}
+            onClose={onCloseLogoutConfirmation}
+            title="¿Quieres cerrar la sesión?"
+            description="Siempre que cierras sesión podrás volver cuando quieras y no perderás ningún progreso."
+            onConfirm={handleConfirmLogout}
+            confirmButtonText="Sí, cerrar sesión"
+          />
+          <ConfirmationModal
+            isOpen={isOpenDeleteDialog}
+            onClose={onCloseDeleteDialog}
+            title="Eliminar área"
+            description={`¿Estás seguro de que deseas eliminar el área "${
+              selectedArea?.name || "seleccionada"
+            }"? Esta acción no se puede deshacer. Perderás todos los hábitos y sus procesos dentro de esta área.`}
+            onConfirm={() => {
+              handleDelete();
+              onCloseDeleteDialog();
+            }}
+            confirmButtonText="Sí, eliminar"
+          />
+        </VStack>
+      </VStack>
+      <Divider />
+      <VStack align="stretch" spacing={1}>
+        <HStack alignItems="center" justifyContent="flex-start">
+          <Text
+            fontSize="xs"
+            fontWeight={600}
+            textTransform="uppercase"
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
+          >
+            Ajustes generales
+          </Text>
+        </HStack>
+        <VStack spacing={1}>
+          <Button
+            as={Button}
+            p={3}
+            w="100%"
             display="flex"
             justifyContent="flex-start"
+            fontSize="sm"
+            onClick={onOpenProfileModal}
+            variant="unstyled"
+            colorScheme="blackAlpha"
+            leftIcon={<LuIcons.LuSlidersHorizontal size="16px" />}
+            _focusVisible="none"
           >
-            <Flex alignItems="center" justifyContent="flex-start" gap={3}>
-              <Avatar
-                src={`//wsrv.nl/?url=${userInfo.photoURL}`}
-                name={userName}
-                size="sm"
-              />
-              <Text fontSize="sm" fontWeight="medium">
-                {userName}
-              </Text>
-            </Flex>
+            Ajustes generales
           </Button>
-        </PopoverTrigger>
-        <PopoverContent w="auto" borderRadius={themeOptions.borderRadius}>
-          <PopoverBody p={0}>
-            <VStack p={1} alignItems="stretch" gap={1}>
-              <Button
-                p={4}
-                display="flex"
-                justifyContent="flex-start"
-                size="xs"
-                onClick={handleLogout}
-              >
-                Cerrar sesión
-              </Button>
-            </VStack>
-          </PopoverBody>
-        </PopoverContent>
-      </Popover>
-
+          {user && (
+            <ModalWithTabs
+              isOpen={isProfileModalOpen}
+              onClose={onCloseProfileModal}
+              userData={user}
+              user={user}
+            />
+          )}
+          <CustomThemePanel />
+          <Button
+            as={Button}
+            p={3}
+            w="100%"
+            display="flex"
+            justifyContent="flex-start"
+            fontSize="sm"
+            color={
+              colorMode === "light" ? "black" : "white"
+            }
+            onClick={() => navigate("/")}
+            leftIcon={<LuIcons.LuArrowLeft size="16px" />}
+            _focusVisible="none"
+          >
+            Volver a la web
+          </Button>
+        </VStack>
+      </VStack>
       <Text
-        mt={4}
+        position="absolute"
+        bottom={1}
+        left="50%"
+        transform="translateX(-50%)"
+        textAlign="center"
         fontSize="xs"
-        fontWeight="semibold"
-        textTransform="uppercase"
-        opacity={0.4}
         userSelect="none"
+        color={colorMode === "light" ? "gray.400" : "#ffffff50"}
       >
-        Hábitos
+        v0.0.1 - Habituo App
       </Text>
-      <Button
-        mt={2}
-        as={Button}
-        px={3}
-        w="100%"
-        display="flex"
-        justifyContent="flex-start"
-        fontSize="sm"
-        onClick={() => navigate("/dashboard/all-habits")}
-        variant={isHabitsActive ? "solid" : "ghost"}
-        colorScheme={isHabitsActive ? themeOptions.focusColor : ""}
-        leftIcon={<LuIcons.LuClipboardList size="16px" />}
-        _focusVisible="none"
-      >
-        Todos los hábitos
-      </Button>
-      <Button
-        as={Button}
-        px={3}
-        w="100%"
-        display="flex"
-        justifyContent="flex-start"
-        fontSize="sm"
-        onClick={onOpenCreateHabitModal}
-        variant={"ghost"}
-        colorScheme={""}
-        leftIcon={<LuIcons.LuPlus size="16px" />}
-        _focusVisible="none"
-      >
-        Agregar nuevo
-      </Button>
-      <ModalCreateHabitArea
-        isOpen={isOpenCreateHabitModal}
-        onClose={onCloseCreateHabitModal}
-      />
-
-      <Text
-        mt={4}
-        fontSize="xs"
-        fontWeight="semibold"
-        textTransform="uppercase"
-        opacity={0.4}
-        userSelect="none"
-      >
-        Áreas
-      </Text>
-      <Box
-        maxH="350px"
-        overflowX="hidden"
-        overflowY="scroll"
-        sx={{
-          "&::-webkit-scrollbar": {
-            width: "4px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-            borderRadius: "4px",
-          },
-          "&::-webkit-scrollbar-thumb:hover": {
-            backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-          },
-          "&::-webkit-scrollbar-track": {
-            backgroundColor: "transparent",
-            borderRadius: "4px",
-          },
-        }}
-      >
-        <Button
-          as={Button}
-          px={3}
-          w="100%"
-          display="flex"
-          justifyContent="flex-start"
-          fontSize="sm"
-          onClick={() => navigate("/dashboard/all-areas")}
-          variant={isAreasActive ? "solid" : "ghost"}
-          colorScheme={isAreasActive ? themeOptions.focusColor : ""}
-          leftIcon={<LuIcons.LuClipboardList size="16px" />}
-          _focusVisible="none"
-        >
-          Todas las áreas
-        </Button>
-        {areas.map((area) => {
-          const IconComponent = LuIcons[area.icon] || LuIcons.LuFolder;
-          return (
-            <>
-              <Button
-                as={Button}
-                px={3}
-                w="100%"
-                display="flex"
-                justifyContent="flex-start"
-                fontSize="sm"
-                onClick={() => navigate(`/dashboard/areas/${area.id}`)}
-                variant={areaId === area.id ? "solid" : "ghost"}
-                colorScheme={areaId === area.id ? themeOptions.focusColor : ""}
-                leftIcon={<IconComponent size="16px" />}
-                _focusVisible="none"
-                onContextMenu={(e) => handleContextMenu(e, area)}
-              >
-                {area.name}
-              </Button>
-              {isContextMenuVisible &&
-                selectedArea &&
-                selectedArea.id === area.id && (
-                  <HStack
-                    ref={contextMenuRef}
-                    position="absolute"
-                    top={contextMenuPosition.y}
-                    left={contextMenuPosition.x}
-                    bg="#fff"
-                    borderRadius={themeOptions.borderRadius}
-                    borderWidth="1px"
-                    zIndex="1000"
-                    display="flex"
-                    flexDirection="column"
-                    alignItems="center"
-                    justifyContent="stretch"
-                    gap="0"
-                  >
-                    <Button
-                      w="100%"
-                      size="sm"
-                      fontWeight={500}
-                      borderRadius={0}
-                      borderTopRadius={themeOptions.borderRadius}
-                      bg={
-                        colorMode === "light"
-                          ? "var(--menu-bg)"
-                          : "rgb(23, 23, 23)"
-                      }
-                      _hover={{
-                        bg:
-                          colorMode === "light"
-                            ? "rgb(237 242 247)"
-                            : "rgba(255, 255, 255, 0.06)",
-                      }}
-                      onClick={() => handleEdit(area)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      w="100%"
-                      size="sm"
-                      fontWeight={500}
-                      borderRadius={0}
-                      borderBottomRadius={themeOptions.borderRadius}
-                      bg={
-                        colorMode === "light"
-                          ? "var(--menu-bg)"
-                          : "rgb(23, 23, 23)"
-                      }
-                      _hover={{
-                        bg:
-                          colorMode === "light"
-                            ? "rgb(237 242 247)"
-                            : "rgba(255, 255, 255, 0.06)",
-                      }}
-                      onClick={onOpenDeleteDialog}
-                    >
-                      Eliminar
-                    </Button>
-                  </HStack>
-                )}
-            </>
-          );
-        })}
-
-        {/* Dialogo de confirmación */}
-        <AlertDialog isOpen={isOpenDeleteDialog} onClose={onCloseDeleteDialog} isCentered>
-          <AlertDialogOverlay>
-            <AlertDialogContent borderRadius={themeOptions.borderRadius}
-          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}>
-              <AlertDialogHeader p={4}>
-                Eliminar área
-              </AlertDialogHeader>
-
-              <AlertDialogBody px={4}>
-                ¿Estás seguro de que deseas eliminar el área{" "}
-                <b style={{fontWeight: '600'}}>{selectedArea?.name}</b>? Esta acción no se puede deshacer.
-                <br />
-                <br />
-                Perderás todos los hábitos que hay en el área, incluyendo sus procesos.
-              </AlertDialogBody>
-
-              <AlertDialogFooter p={4}>
-                <Button onClick={onCloseDeleteDialog} mr={3}>No</Button>
-                <Button colorScheme="red" onClick={handleDelete}>
-                  Sí, eliminar
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogOverlay>
-        </AlertDialog>
-        <Button
-          as={Button}
-          px={3}
-          w="100%"
-          display="flex"
-          justifyContent="flex-start"
-          fontSize="sm"
-          onClick={onOpenCreateModal}
-          variant={"ghost"}
-          colorScheme={""}
-          leftIcon={<FiPlus size="16px" />}
-          _focusVisible="none"
-        >
-          Agregar nueva
-        </Button>
-        <ModalCreateArea
-          isOpen={isOpenCreateModal}
-          onClose={() => {
-            setSelectedArea(null);
-            onCloseCreateModal();
-          }}
-          selectedArea={selectedArea}
-        />
-      </Box>
-      <Text
-        mt={4}
-        fontSize="xs"
-        fontWeight="semibold"
-        textTransform="uppercase"
-        opacity={0.4}
-        userSelect="none"
-      >
-        Ajustes generales
-      </Text>
-      {userData && <ModalWithTabs userInfo={userInfo} userData={userData} />}
-      <CustomThemePanel />
-    </Box>
+    </VStack>
   );
 };
 

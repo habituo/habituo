@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { ModalCreateHabitArea } from "../../../routes/index";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Grid,
   HStack,
@@ -8,79 +7,154 @@ import {
   Text,
   Stack,
   Skeleton,
-  Button,
-  LinkBox,
-  LinkOverlay,
-  IconButton,
   useColorMode,
   Stat,
   StatLabel,
   StatNumber,
   StatHelpText,
   StatArrow,
-  StatGroup,
   Tabs,
   TabList,
   TabPanels,
   Tab,
   TabPanel,
   TabIndicator,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  PopoverCloseButton,
+  Button,
+  useToast,
 } from "@chakra-ui/react";
 import Calendar from "react-calendar";
 import * as LuIcons from "react-icons/lu";
 import { VscFlame } from "react-icons/vsc";
 import { useTheme } from "../../../context/ThemeContext";
-import { db } from "../../../hooks/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  getHabitRecordsListener,
+  deleteHabitRecord as deleteHabitInDb,
+  skipHabit as skipHabitInDb,
+  completeHabit as completeHabitInDb,
+  getAreaNameById,
+} from "../../../hooks/database";
 import BarChart from "../../../components/charts/BarChart";
-import HeatMap from "../../../components/charts/HeatMap";
-import customTheme from "../../../theme/theme";
+// import HeatMap from "../../../components/charts/HeatMap";
+import { NoDataPage } from "../../../routes";
+import { useAuthUser } from "../../../context/AuthUserContext";
 
-const replaceCalendarIcons = () => {
-  const prev2Button = document.querySelector(
-    ".react-calendar__navigation__prev2-button"
-  );
-  const prevButton = document.querySelector(
-    ".react-calendar__navigation__prev-button"
-  );
-  const next2Button = document.querySelector(
-    ".react-calendar__navigation__next2-button"
-  );
-  const nextButton = document.querySelector(
-    ".react-calendar__navigation__next-button"
-  );
-
-  if (prev2Button) {
-    prev2Button.innerHTML = "";
-    const icon = document.createElement("span");
-    icon.innerHTML = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>`;
-    prev2Button.appendChild(icon);
-  }
-  if (prevButton) {
-    prev2Button.innerHTML = "";
-    const icon = document.createElement("span");
-    icon.innerHTML = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6"></path></svg>`;
-    prev2Button.appendChild(icon);
-  }
-  if (next2Button) {
-    next2Button.innerHTML = "";
-    const icon = document.createElement("span");
-    icon.innerHTML = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m6 17 5-5-5-5"></path><path d="m13 17 5-5-5-5"></path></svg>`;
-    next2Button.appendChild(icon);
-  }
-  if (nextButton) {
-    nextButton.innerHTML = "";
-    const icon = document.createElement("span");
-    icon.innerHTML = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6"></path></svg>`;
-    nextButton.appendChild(icon);
-  }
+const HABIT_STATUS = {
+  COMPLETED: "completed",
+  FAILED: "failed",
+  SKIPPED: "skipped",
+  DELETED: "deleted",
 };
 
-const HabitPage = ({ habit, fetchHabits }) => {
+const safeToDate = (dateInput) => {
+  if (dateInput instanceof Date) {
+    return dateInput;
+  }
+  if (typeof dateInput === "string" || typeof dateInput === "number") {
+    const date = new Date(dateInput);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+};
+
+const getTodayFormattedDate = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const useCalendarIconReplacement = (calendarRef) => {
+  useEffect(() => {
+    const replaceIcon = (element, svgContent) => {
+      if (element) {
+        element.innerHTML = "";
+        const icon = document.createElement("span");
+        icon.innerHTML = svgContent;
+        element.appendChild(icon);
+      }
+    };
+
+    const arrowSvg = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6"></path></svg>`;
+    const doubleArrowSvg = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>`;
+    const nextArrowSvg = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6"></path></svg>`;
+    const nextDoubleArrowSvg = `<svg stroke="#000000" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20px" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="m6 17 5-5-5-5"></path><path d="m13 17 5-5-5-5"></path></svg>`;
+
+    const observer = new MutationObserver(() => {
+      if (calendarRef.current) {
+        replaceIcon(
+          calendarRef.current.querySelector(
+            ".react-calendar__navigation__prev2-button"
+          ),
+          doubleArrowSvg
+        );
+        replaceIcon(
+          calendarRef.current.querySelector(
+            ".react-calendar__navigation__prev-button"
+          ),
+          arrowSvg
+        );
+        replaceIcon(
+          calendarRef.current.querySelector(
+            ".react-calendar__navigation__next2-button"
+          ),
+          nextDoubleArrowSvg
+        );
+        replaceIcon(
+          calendarRef.current.querySelector(
+            ".react-calendar__navigation__next-button"
+          ),
+          nextArrowSvg
+        );
+      }
+    });
+
+    if (calendarRef.current) {
+      observer.observe(calendarRef.current, { childList: true, subtree: true });
+    }
+
+    return () => observer.disconnect();
+  }, [calendarRef]);
+};
+
+const HabitStat = ({ label, current, change, icon, unit }) => {
+  const displayUnit = (count) => {
+    return count === 1 ? unit : `${unit}s`;
+  };
+
+  return (
+    <Stat>
+      <StatLabel display="flex" alignItems="center" gap={1}>
+        {icon} {label}
+      </StatLabel>
+      <StatNumber>
+        {current} {displayUnit(current)}
+      </StatNumber>
+      <StatHelpText>
+        {current === 0 ? (
+          "---"
+        ) : (
+          <>
+            <StatArrow type={change >= 0 ? "increase" : "decrease"} />
+            {change.toFixed(1)}%
+          </>
+        )}
+      </StatHelpText>
+    </Stat>
+  );
+};
+
+const HabitPage = ({ habit, allAreas }) => {
+  const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const [isLoaded, setIsLoaded] = useState(false);
-  const { themeOptions } = useTheme();
-  const [value, setValue] = useState(new Date());
+  const toast = useToast();
+  const { user } = useAuthUser();
   const [habitRecords, setHabitRecords] = useState([]);
   const [stats, setStats] = useState({
     completed: { current: 0, previous: 0, change: 0 },
@@ -89,57 +163,40 @@ const HabitPage = ({ habit, fetchHabits }) => {
     streak: 0,
     total: 0,
   });
+  const userId = user?.uid;
+  const areaId = habit?.area;
+  const habitId = habit?.id;
+  const [calendarValue, setCalendarValue] = useState(new Date());
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [clickedDate, setClickedDate] = useState(null);
+  const [selectedDateInfo, setSelectedDateInfo] = useState(null);
+  const [calendarKey, setCalendarKey] = useState(0);
+  const calendarRef = useRef(null);
+  useCalendarIconReplacement(calendarRef);
 
-  const userId = "1N9nstyTk3S4JplU92RlK9GR8Gi2";
-  const areaId = habit.area;
-  const habitId = habit.id;
+  const areaName = useMemo(() => {
+    return getAreaNameById(areaId, allAreas);
+  }, [areaId, allAreas]);
 
-  useEffect(() => {
-    const fetchHabitRecords = async () => {
-      try {
-        const recordsRef = collection(
-          db,
-          `users/${userId}/areas/${areaId}/habits/${habitId}/records`
-        );
-        const snapshot = await getDocs(recordsRef);
-
-        const records = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          const date = data.timestamp ? data.timestamp.toDate() : null;
-          return {
-            id: doc.id,
-            ...data,
-            date,
-          };
-        });
-
-        setHabitRecords(records);
-        processRecords(records);
-        setIsLoaded(true);
-      } catch (error) {
-        console.error("Error obteniendo los registros del hábito:", error);
-      }
-    };
-
-    fetchHabitRecords();
-  }, [userId, areaId, habitId]);
-
-  const getRecordsForMonth = (records, year, month) => {
-    return records.filter((record) => {
-      const recordDate = new Date(record.date);
-      return (
-        recordDate.getFullYear() === year && recordDate.getMonth() === month
-      );
-    });
-  };
-
-  const processRecords = (records) => {
+  const processRecords = useCallback((records) => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
+    const getRecordsForMonth = (recs, year, month) =>
+      recs.filter((record) => {
+        const recordDate = record.date;
+        return (
+          recordDate &&
+          recordDate.getFullYear() === year &&
+          recordDate.getMonth() === month
+        );
+      });
+
+    const previousMonthDate = new Date(now);
+    previousMonthDate.setMonth(now.getMonth() - 1);
+    const previousYear = previousMonthDate.getFullYear();
+    const previousMonth = previousMonthDate.getMonth();
     const currentMonthRecords = getRecordsForMonth(
       records,
       currentYear,
@@ -151,45 +208,55 @@ const HabitPage = ({ habit, fetchHabits }) => {
       previousMonth
     );
 
-    const calculateStats = (records) => {
+    const calculateStatusCounts = (recs) => {
       let completed = 0,
         failed = 0,
         skipped = 0;
-      records.forEach((record) => {
-        if (record.status === "completed") completed++;
-        if (record.status === "failed") failed++;
-        if (record.status === "skipped") skipped++;
+      recs.forEach((record) => {
+        if (record.status === HABIT_STATUS.COMPLETED) completed++;
+        if (record.status === HABIT_STATUS.FAILED) failed++;
+        if (record.status === HABIT_STATUS.SKIPPED) skipped++;
       });
       return { completed, failed, skipped };
     };
 
-    const currentStats = calculateStats(currentMonthRecords);
-    const previousStats = calculateStats(previousMonthRecords);
+    const currentStats = calculateStatusCounts(currentMonthRecords);
+    const previousStats = calculateStatusCounts(previousMonthRecords);
 
     const calculateChange = (current, previous) => {
-      if (previous === 0) return 0;
+      if (previous === 0) return current > 0 ? 100 : 0;
       return ((current - previous) / previous) * 100;
     };
 
-    // Calcular la racha de completados
-    const calculateStreak = (records) => {
-      let currentStreak = 0;
-      let maxStreak = 0;
+    const calculateLongestStreak = (records) => {
+      if (!records || records.length === 0) return 0;
 
-      // Ordenar los registros por fecha
-      const sortedRecords = records.slice().sort((a, b) => {
-        return new Date(a.date) - new Date(b.date);
+      const recordMap = {};
+      records.forEach((record) => {
+        const date = record.date;
+        if (date instanceof Date && record.status) {
+          const key = date.toISOString().split("T")[0];
+          recordMap[key] = record.status;
+        }
       });
 
-      for (const record of sortedRecords) {
-        if (record.status === "completed") {
-          currentStreak++;
-          maxStreak = Math.max(maxStreak, currentStreak);
+      let streak = 0;
+      let today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      while (true) {
+        const key = today.toISOString().split("T")[0];
+        const status = recordMap[key];
+
+        if (status === "completed") {
+          streak++;
+          today.setDate(today.getDate() - 1);
         } else {
-          currentStreak = 0;
+          break;
         }
       }
-      return maxStreak;
+
+      return streak;
     };
 
     setStats({
@@ -211,457 +278,721 @@ const HabitPage = ({ habit, fetchHabits }) => {
         previous: previousStats.skipped,
         change: calculateChange(currentStats.skipped, previousStats.skipped),
       },
-      streak: calculateStreak(records),
+      streak: calculateLongestStreak(records),
       total: records.length,
     });
-  };
-
-  useEffect(() => {
-    replaceCalendarIcons();
   }, []);
 
-  const tileClassName = ({ date, view }) => {
-    if (view === "month") {
-      const dateStr = new Date(
-        date.getTime() - date.getTimezoneOffset() * 60000
-      )
-        .toISOString()
-        .split("T")[0];
+  useEffect(() => {
+    if (!userId || !areaId || !habitId) {
+      setIsLoaded(true);
+      return;
+    }
 
-      if (Array.isArray(habitRecords)) {
-        if (
-          habitRecords.some(
-            (record) =>
-              record.status === "completed" &&
-              record.date &&
-              record.date.toISOString().split("T")[0] === dateStr
-          )
-        ) {
-          return "habit-completed";
-        }
-        if (
-          habitRecords.some(
-            (record) =>
-              record.status === "failed" &&
-              record.date &&
-              record.date.toISOString().split("T")[0] === dateStr
-          )
-        ) {
-          return "habit-failed";
-        }
-        if (
-          habitRecords.some(
-            (record) =>
-              record.status === "skipped" &&
-              record.date &&
-              record.date.toISOString().split("T")[0] === dateStr
-          )
-        ) {
-          return "habit-skipped";
+    setIsLoaded(false);
+
+    const unsubscribe = getHabitRecordsListener(
+      userId,
+      areaId,
+      habitId,
+      (updatedRecords) => {
+        const formattedRecords = updatedRecords.map((record) => ({
+          ...record,
+          date: safeToDate(record.date),
+        }));
+        setHabitRecords(formattedRecords);
+        processRecords(formattedRecords);
+        setIsLoaded(true);
+      },
+      (error) => {
+        toast({
+          title: (
+            <Text fontWeight={600}>Error al cargar registros del hábito</Text>
+          ),
+          description: error.message,
+          status: "error",
+          position: "bottom",
+        });
+        setIsLoaded(true);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userId, areaId, habitId, processRecords, toast]);
+
+  const tileClassName = useCallback(
+    ({ date, view }) => {
+      if (view === "month" && Array.isArray(habitRecords)) {
+        const calendarYear = date.getFullYear();
+        const calendarMonth = date.getMonth();
+        const calendarDay = date.getDate();
+
+        const recordForDate = habitRecords.find((record) => {
+          return (
+            record.date &&
+            record.date.getFullYear() === calendarYear &&
+            record.date.getMonth() === calendarMonth &&
+            record.date.getDate() === calendarDay
+          );
+        });
+
+        if (recordForDate) {
+          switch (recordForDate.status) {
+            case HABIT_STATUS.COMPLETED:
+              return "habit-completed";
+            case HABIT_STATUS.FAILED:
+              return "habit-failed";
+            case HABIT_STATUS.SKIPPED:
+              return "habit-skipped";
+            default:
+              return null;
+          }
         }
       }
-    }
-  };
+      return null;
+    },
+    [habitRecords]
+  );
 
-  const HabitStat = ({ label, current, change, icon, unit }) => {
-    return (
-      <Stat>
-        <StatLabel display="flex" alignItems="center" gap={1}>
-          {icon} {label}
-        </StatLabel>
-        <StatNumber>
-          {current} {current === 1 ? unit : `${unit}s`}
-        </StatNumber>
-        <StatHelpText>
-          {current === 0 ? (
-            "---"
-          ) : (
-            <>
-              <StatArrow type={change > 0 ? "increase" : "decrease"} />
-              {current === 1 ? unit : `${unit}s`}
-            </>
-          )}
-        </StatHelpText>
-      </Stat>
-    );
-  };
+  const failedIcon =
+    colorMode === "light"
+      ? "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg=="
+      : "data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg==";
 
   const IconComponent = LuIcons[habit.icon];
 
-  return (
-    <Tabs
-      position="relative"
-      variant="unstyled"
-      w="100%"
-      minH="100vh"
-      maxH="100vh"
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
-      p={2}
-      userSelect="none"
-      overflowY="scroll"
-      sx={{
-        "&::-webkit-scrollbar": {
-          width: "8px",
-        },
-        "&::-webkit-scrollbar-thumb": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-          borderRadius: "4px",
-        },
-        "&::-webkit-scrollbar-thumb:hover": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-        },
-        "&::-webkit-scrollbar-track": {
-          backgroundColor: "transparent",
-          borderRadius: "4px",
-        },
-      }}
-    >
-      <TabList>
-        <Tab _selected={{ fontWeight: "600" }}>Información</Tab>
-        <Tab _selected={{ fontWeight: "600" }}>Detalles</Tab>
-      </TabList>
-      <TabIndicator
-        mt="-1.5px"
-        height="2px"
-        bg={`var(--chakra-colors-${themeOptions.focusColor}-500)`}
-      />
-      <TabPanels>
-        <TabPanel>
-          {habit ? (
-            <>
-              <HStack alignItems="center" spacing={2} marginBottom={2}>
-                {IconComponent && (
-                  <IconComponent
-                    size="22px"
-                    aria-label={`${habit.name} icon`}
-                  />
-                )}
-                <Text fontSize="20px" fontWeight="600">
-                  {habit.name}
-                </Text>
-              </HStack>
-              <Box
-                p={2}
-                border="2px solid"
-                borderColor="var(--chakra-colors-chakra-border-color)"
-                borderRadius={themeOptions.borderRadius}
-              >
-                <HStack>
-                  <VscFlame size={50} />
-                  <VStack
-                    spacing={0}
-                    alignItems="flex-start"
-                    justifyContent="center"
-                  >
-                    <Text fontSize="14px" fontWeight="500">
-                      Racha actual
-                    </Text>
-                    <Text fontSize="2xl" fontWeight="600">
-                      {stats.streak} {stats.streak === 1 ? "día" : "días"}
-                    </Text>
-                  </VStack>
-                </HStack>
-              </Box>
-              <Grid
-                my={2}
-                display="grid"
-                gridTemplateColumns="repeat(2, minmax(0, 1fr))"
-                gap={2}
-              >
-                <Box
-                  px={3}
-                  py={2}
-                  pb={0}
-                  border="2px solid"
-                  borderColor="var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <HabitStat
-                    label="Completado"
-                    current={stats.completed.current}
-                    change={stats.completed.change}
-                    icon={<LuIcons.LuCheck />}
-                    unit="día"
-                  />
-                </Box>
-                <Box
-                  px={3}
-                  py={2}
-                  pb={0}
-                  border="2px solid"
-                  borderColor="var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <HabitStat
-                    label="Fallado"
-                    current={stats.failed.current}
-                    change={stats.failed.change}
-                    icon={<LuIcons.LuX />}
-                    unit="día"
-                  />
-                </Box>
-                <Box
-                  px={3}
-                  py={2}
-                  pb={0}
-                  border="2px solid"
-                  borderColor="var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <HabitStat
-                    label="Saltado"
-                    current={stats.skipped.current}
-                    change={stats.skipped.change}
-                    icon={<LuIcons.LuArrowRight />}
-                    unit="día"
-                  />
-                </Box>
-                <Box
-                  px={3}
-                  py={2}
-                  pb={0}
-                  border="2px solid"
-                  borderColor="var(--chakra-colors-chakra-border-color)"
-                  borderRadius={themeOptions.borderRadius}
-                >
-                  <Stat>
-                    <StatLabel>Total</StatLabel>
-                    <StatNumber>
-                      {stats.total} {stats.total === 1 ? "vez" : "veces"}
-                    </StatNumber>
-                  </Stat>
-                </Box>
-              </Grid>
-              <Calendar
-                className="custom-react-calendar"
-                onChange={setValue}
-                value={value}
-                tileClassName={tileClassName}
-              />
-              <style>
-                {`
-              .custom-react-calendar {
-                margin-bottom: .5rem;
-                padding: 1rem 0 .5rem;
-                border: 2px solid var(--chakra-colors-chakra-border-color);
-                border-radius: var(--chakra-radii-${themeOptions.borderRadius});
-              }
-              .react-calendar__navigation {
-                display: none;
-                align-items: center;
-                justify-content: center;
-                gap: 0;
-              }
-              .react-calendar__navigation__label {
-                flex-grow: inherit !important;
-                margin: 0 .5rem;
-              }
-              .react-calendar__month-view__weekdays__weekday {
-                text-align: center;
-                text-transform: capitalize;
-                font-size: 0.6875rem;
-                font-weight: 600;
-                text-decoration: none;
-                margin-bottom: 10px;
-              }
-              .react-calendar__month-view__weekdays__weekday abbr[title] {
-                text-decoration: none;
-              }
-              .react-calendar__tile.react-calendar__month-view__days__day {
-                position: relative;
-                height: 38px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                line-height: 38px;
-                font-size: 0.9375rem;
-                font-weight: 400;
-                border-radius: var(--chakra-radii-${themeOptions.borderRadius});
-                color: ${
-                  colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"
-                };
-                border: 2px solid transparent;
-                overflow: visible !important;
-              }
-              .react-calendar__tile.react-calendar__month-view__days__day.react-calendar__month-view__days__day--neighboringMonth {
-                color: ${
-                  colorMode === "light"
-                    ? "rgb(123, 124, 124)"
-                    : "rgb(127, 127, 127)"
-                };
-              }
-              .react-calendar__tile.react-calendar__tile--now abbr {
-                font-weight: 900;
-              }
-              /*.react-calendar__tile.react-calendar__tile--now::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                width: 4px;
-                height: 4px;
-                border-radius: 50%;
-                background: var(--chakra-colors-${themeOptions.focusColor}-500);
-              }*/
-              .habit-completed {
-                background: var(--chakra-colors-${themeOptions.focusColor}-300);
-              }
-              .habit-failed::after {
-                content: '';
-                position:absolute;
-                top: -6px;
-                background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20x%3D%220px%22%20y%3D%220px%22%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%2C0%2C256%2C256%22%3E%3Cg%20fill%3D%22%23ffffff%22%20fill-rule%3D%22nonzero%22%20stroke%3D%22none%22%20stroke-width%3D%221%22%20stroke-linecap%3D%22butt%22%20stroke-linejoin%3D%22miter%22%20stroke-miterlimit%3D%2210%22%20stroke-dasharray%3D%22%22%20stroke-dashoffset%3D%220%22%20font-family%3D%22none%22%20font-weight%3D%22none%22%20font-size%3D%22none%22%20text-anchor%3D%22none%22%20style%3D%22mix-blend-mode%3A%20normal%22%3E%3Cg%20transform%3D%22scale(3.55556%2C3.55556)%22%3E%3Cpath%20d%3D%22M19%2C15c-1.023%2C0%20-2.04812%2C0.39087%20-2.82812%2C1.17188c-1.562%2C1.562%20-1.562%2C4.09425%200%2C5.65625l14.17188%2C14.17188l-14.17187%2C14.17188c-1.562%2C1.562%20-1.562%2C4.09425%200%2C5.65625c0.78%2C0.78%201.80513%2C1.17188%202.82813%2C1.17188c1.023%2C0%202.04812%2C-0.39088%202.82813%2C-1.17187l14.17188%2C-14.17187l14.17188%2C14.17188c1.56%2C1.562%204.09525%2C1.562%205.65625%2C0c1.563%2C-1.563%201.563%2C-4.09325%200%2C-5.65625l-14.17187%2C-14.17187l14.17188%2C-14.17187c1.562%2C-1.562%201.562%2C-4.09425%200%2C-5.65625c-1.56%2C-1.561%20-4.09625%2C-1.562%20-5.65625%2C0l-14.17187%2C14.17188l-14.17187%2C-14.17187c-0.78%2C-0.78%20-1.80513%2C-1.17187%20-2.82812%2C-1.17187z%22%3E%3C%2Fpath%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E");
-                background-position: center;
-                background-size: cover;
-                color: #fff;
-                width: 14px;
-                height: 14px;
-              }
-              .habit-skipped {
-                border-color: var(--chakra-colors-${
-                  themeOptions.focusColor
-                }-300) !important;
-              }
-            `}
-              </style>
-              <Box
-                p={0}
-                border="2px solid"
-                borderColor="var(--chakra-colors-chakra-border-color)"
-                borderRadius={themeOptions.borderRadius}
-              >
-                <BarChart userId={userId} habitId={habit.id} areaId={habit.area} />
-              </Box>
-              {/* <HeatMap /> */}
-            </>
-          ) : (
-            <VStack
-              w="100%"
-              h={`calc(100vh - 90px)`}
+  const handleDayClick = useCallback(
+    (date) => {
+      setCalendarValue(date);
+      setClickedDate(date);
+      const habitInfo = habitRecords.find((record) => {
+        const recordDate = record.date;
+        return recordDate && recordDate.toDateString() === date.toDateString();
+      });
+      setSelectedDateInfo(habitInfo?.status || null);
+      setPopoverOpen(true);
+    },
+    [habitRecords]
+  );
+
+  const handleHabitAction = useCallback(
+    async (actionType) => {
+      if (!habit || !clickedDate || !userId) {
+        toast({
+          title: <Text fontWeight={600}>Error</Text>,
+          description:
+            "No se ha seleccionado una fecha o hábito válido para la acción.",
+          status: "error",
+          position: "bottom",
+        });
+        return;
+      }
+
+      const dateToProcess = getTodayFormattedDate(clickedDate);
+
+      try {
+        if (actionType === HABIT_STATUS.COMPLETED) {
+          const amountToComplete = habit.goal?.unit === "minutes" ? 30 : 1;
+          await completeHabitInDb(
+            userId,
+            habit.area,
+            habit.id,
+            habit,
+            toast,
+            dateToProcess,
+            amountToComplete
+          );
+        } else if (actionType === HABIT_STATUS.SKIPPED) {
+          await skipHabitInDb(
+            userId,
+            areaId,
+            habitId,
+            toast,
+            habit.name,
+            clickedDate
+          );
+        } else if (actionType === HABIT_STATUS.DELETED) {
+          await deleteHabitInDb(
+            userId,
+            areaId,
+            habitId,
+            toast,
+            habit.name,
+            clickedDate
+          );
+        }
+        setPopoverOpen(false);
+      } catch (error) {
+        toast({
+          title: <Text fontWeight={600}>Error en la acción del hábito</Text>,
+          description: error.message,
+          status: "error",
+          position: "bottom",
+        });
+      }
+    },
+    [habit, clickedDate, userId, areaId, habitId, toast]
+  );
+
+  const memoizedHabitStats = useMemo(
+    () => (
+      <>
+        <HabitStat
+          label="Completado"
+          current={stats.completed.current}
+          change={stats.completed.change}
+          icon={IconComponent ? <IconComponent /> : <LuIcons.LuCheck />}
+          unit="vez"
+        />
+        <HabitStat
+          label="Fallado"
+          current={stats.failed.current}
+          change={stats.failed.change}
+          icon={
+            <Box
+              as="span"
+              dangerouslySetInnerHTML={{ __html: failedIcon }}
+              display="inline-flex"
               alignItems="center"
               justifyContent="center"
-              userSelect="none"
-            >
-              <Stack mb={2} borderRadius={themeOptions.borderRadius}>
-                <Skeleton
-                  isLoaded={isLoaded}
-                  w="200px"
-                  h="40px"
+            />
+          }
+          unit="vez"
+        />
+        <HabitStat
+          label="Saltado"
+          current={stats.skipped.current}
+          change={stats.skipped.change}
+          icon={<LuIcons.LuSkipForward />}
+          unit="vez"
+        />
+        <HabitStat
+          label="Racha"
+          current={stats.streak}
+          change={0}
+          icon={<VscFlame />}
+          unit="día"
+        />
+      </>
+    ),
+    [stats, IconComponent, failedIcon]
+  );
+
+  const repeatType = habit.goal.period === "day" ? "días" : "week" ? "semanas" : "meses";
+
+  if (!habit) {
+    return (
+      <NoDataPage
+        title="Hábito no encontrado"
+        description="Parece que este hábito no existe o no tienes permiso para verlo."
+      />
+    );
+  }
+
+  return (
+    <>
+      {habit ? (
+        <Tabs
+          pt={2}
+          position="relative"
+          variant="unstyled"
+          w="100%"
+          minH="100vh"
+          maxH="100vh"
+          bg={colorMode === "light" ? "gray.100" : "gray.900"}
+          overflowY="scroll"
+        >
+          <TabList>
+            <Tab _selected={{ fontWeight: "600" }}>Información</Tab>
+            <Tab _selected={{ fontWeight: "600" }}>Detalles</Tab>
+          </TabList>
+          <TabIndicator
+            mt="-1.5px"
+            height="2px"
+            bg={`var(--chakra-colors-${themeOptions.focusColor}-500)`}
+          />
+          <TabPanels>
+            <TabPanel>
+              {habit ? (
+                <>
+                  <HStack alignItems="center" spacing={2} marginBottom={2}>
+                    <Box
+                      p={2}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderRadius={themeOptions.borderRadius}
+                      backgroundColor={
+                        colorMode === "light" ? "#00000010" : "#ffffff20"
+                      }
+                    >
+                      {IconComponent && (
+                        <IconComponent
+                          size="22px"
+                          aria-label={`${habit.name} icon`}
+                        />
+                      )}
+                    </Box>
+                    <Text fontSize="20px" fontWeight="600">
+                      {habit.name}
+                    </Text>
+                  </HStack>
+                  <Box
+                    p={2}
+                    border="2px solid var(--chakra-colors-chakra-border-color)"
+                    borderRadius={themeOptions.borderRadius}
+                    bg={colorMode === "light" ? "white" : "black"}
+                  >
+                    <HStack>
+                      <VscFlame size={50} />
+                      <VStack
+                        spacing={0}
+                        alignItems="flex-start"
+                        justifyContent="center"
+                      >
+                        <Text fontSize="14px" fontWeight="500">
+                          Racha actual
+                        </Text>
+                        <Text fontSize="2xl" fontWeight="600">
+                          {stats.streak} {stats.streak === 1 ? "día" : "días"}
+                        </Text>
+                      </VStack>
+                    </HStack>
+                  </Box>
+                  <Grid
+                    my={2}
+                    display="grid"
+                    gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                    gap={2}
+                  >
+                    <Box
+                      px={3}
+                      py={2}
+                      pb={0}
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      bg={colorMode === "light" ? "white" : "black"}
+                    >
+                      <HabitStat
+                        label="Completado"
+                        current={stats.completed.current}
+                        change={stats.completed.change}
+                        icon={<LuIcons.LuCheck />}
+                        unit="día"
+                      />
+                    </Box>
+                    <Box
+                      px={3}
+                      py={2}
+                      pb={0}
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      bg={colorMode === "light" ? "white" : "black"}
+                    >
+                      <HabitStat
+                        label="Fallado"
+                        current={stats.failed.current}
+                        change={stats.failed.change}
+                        icon={<LuIcons.LuX />}
+                        unit="día"
+                      />
+                    </Box>
+                    <Box
+                      px={3}
+                      py={2}
+                      pb={0}
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      bg={colorMode === "light" ? "white" : "black"}
+                    >
+                      <HabitStat
+                        label="Saltado"
+                        current={stats.skipped.current}
+                        change={stats.skipped.change}
+                        icon={<LuIcons.LuArrowRight />}
+                        unit="día"
+                      />
+                    </Box>
+                    <Box
+                      px={3}
+                      py={2}
+                      pb={0}
+                      border="2px solid var(--chakra-colors-chakra-border-color)"
+                      borderRadius={themeOptions.borderRadius}
+                      bg={colorMode === "light" ? "white" : "black"}
+                    >
+                      <Stat>
+                        <StatLabel>Total</StatLabel>
+                        <StatNumber>
+                          {stats.total} {stats.total === 1 ? "vez" : "veces"}
+                        </StatNumber>
+                      </Stat>
+                    </Box>
+                  </Grid>
+                  <Popover
+                    isOpen={popoverOpen}
+                    onClose={() => setPopoverOpen(false)}
+                    placement="bottom-start"
+                    closeOnBlur={false}
+                    trigger="click"
+                  >
+                    <PopoverTrigger>
+                      <Box
+                        as="div"
+                        bg={colorMode === "light" ? "white" : "black"}
+                        borderRadius={themeOptions.borderRadius}
+                      >
+                        <Calendar
+                          key={calendarKey}
+                          className="custom-react-calendar"
+                          onClickDay={handleDayClick}
+                          value={calendarValue}
+                          tileClassName={tileClassName}
+                        />
+                      </Box>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      borderRadius={themeOptions.borderRadius}
+                      bg={colorMode === "light" ? "white" : "black"}
+                    >
+                      <PopoverCloseButton
+                        top={2}
+                        right={2}
+                        borderRadius={themeOptions.borderRadius}
+                      />
+                      <PopoverHeader px={4} py={2} fontWeight={600}>
+                        ¿Qué deseas hacer?
+                      </PopoverHeader>
+                      <PopoverBody px={4}>
+                        <Button
+                          size="sm"
+                          colorScheme="green"
+                          mr={2}
+                          onClick={() =>
+                            handleHabitAction(HABIT_STATUS.COMPLETED)
+                          }
+                        >
+                          Completar
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="yellow"
+                          mr={2}
+                          onClick={() =>
+                            handleHabitAction(HABIT_STATUS.SKIPPED)
+                          }
+                        >
+                          Saltar
+                        </Button>
+                        <Button
+                          size="sm"
+                          colorScheme="red"
+                          onClick={() =>
+                            handleHabitAction(HABIT_STATUS.DELETED)
+                          }
+                        >
+                          Borrar
+                        </Button>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                  <style>
+                    {`
+                      .custom-react-calendar {
+                        margin-bottom: .5rem;
+                        padding: 1rem 0 .5rem;
+                        border: 2px solid var(--chakra-colors-chakra-border-color);
+                        border-radius: var(--chakra-radii-${
+                          themeOptions.borderRadius
+                        });
+                      }
+                      .react-calendar__navigation {
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 0;
+                      }
+                      .react-calendar__navigation__label {
+                        flex-grow: inherit !important;
+                        margin: 0 .5rem;
+                      }
+                      .react-calendar__month-view__weekdays__weekday {
+                        text-align: center;
+                        text-transform: capitalize;
+                        font-size: 0.6875rem;
+                        font-weight: 600;
+                        text-decoration: none;
+                        margin-bottom: 10px;
+                      }
+                      .react-calendar__month-view__weekdays__weekday abbr[title] {
+                        text-decoration: none;
+                      }
+                      .react-calendar__tile.react-calendar__month-view__days__day {
+                        position: relative;
+                        height: 35px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        line-height: 40px;
+                        font-size: 0.9375rem;
+                        font-weight: 400;
+                        border-radius: var(--chakra-radii-${
+                          themeOptions.borderRadius
+                        });
+                        color: ${colorMode === "light" ? "black" : "white"};
+                        border: 2px solid transparent;
+                        overflow: visible !important;
+                      }
+                      .react-calendar__tile.react-calendar__month-view__days__day.react-calendar__month-view__days__day--neighboringMonth {
+                        color: ${
+                          colorMode === "light"
+                            ? "rgb(123, 124, 124)"
+                            : "rgb(127, 127, 127)"
+                        };
+                      }
+                      .react-calendar__tile.react-calendar__tile--now abbr {
+                        font-weight: 900;
+                      }
+                      .habit-completed {
+                        background: var(--chakra-colors-${
+                          themeOptions.focusColor
+                        }-300);
+                      }
+                      .habit-failed::after {
+                        content: '';
+                        position:absolute;
+                        top: -6px;
+                        background-image: url(${failedIcon});
+                        background-position: center;
+                        background-size: cover;
+                        color: #fff;
+                        width: 14px;
+                        height: 14px;
+                      }
+                      .habit-skipped {
+                        border-color: var(--chakra-colors-${
+                          themeOptions.focusColor
+                        }-300) !important;
+                      }
+                    `}
+                  </style>
+                  <Box
+                    p={0}
+                    border="2px solid var(--chakra-colors-chakra-border-color)"
+                    borderRadius={themeOptions.borderRadius}
+                    bg={colorMode === "light" ? "white" : "black"}
+                  >
+                    <BarChart
+                      userId={userId}
+                      habitId={habit.id}
+                      areaId={habit.area}
+                    />
+                  </Box>
+                  {/* <Box
+                    p={0}
+                    border="2px solid var(--chakra-colors-chakra-border-color)"
+                    borderRadius={themeOptions.borderRadius}
+                  >
+                    <HeatMap
+                      userId={userId}
+                      habitId={habit.id}
+                      areaId={habit.area}
+                    />
+                  </Box> */}
+                </>
+              ) : (
+                <VStack
+                  w="100%"
+                  h={`calc(100vh - 90px)`}
+                  alignItems="center"
+                  justifyContent="center"
+                  userSelect="none"
+                >
+                  <Stack mb={2} borderRadius={themeOptions.borderRadius}>
+                    <Skeleton
+                      isLoaded={isLoaded}
+                      w="200px"
+                      h="40px"
+                      borderRadius={themeOptions.borderRadius}
+                    />
+                    <Skeleton
+                      isLoaded={isLoaded}
+                      w="200px"
+                      h="40px"
+                      borderRadius={themeOptions.borderRadius}
+                    />
+                    <Skeleton
+                      isLoaded={isLoaded}
+                      w="200px"
+                      h="40px"
+                      borderRadius={themeOptions.borderRadius}
+                    />
+                  </Stack>
+                  <Text as="h2" fontSize="lg" fontWeight="600">
+                    Da el paso y construye tu mejor versión
+                  </Text>
+                  <Text as="h2" fontSize="sm" maxW="600px" textAlign="center">
+                    Los hábitos son como los escalones de una escalera: al dar
+                    el primer paso, el resto se va sumando uno a uno.
+                  </Text>
+                </VStack>
+              )}
+            </TabPanel>
+            <TabPanel>
+              <VStack
+                w="100%"
+                alignItems="stretch"
+                justifyContent="flex-start"
+                spacing={4}
+              >
+                <Text align="center" fontSize="sm" fontWeight={400}>
+                  ID: {habit.id}
+                </Text>
+                <Box
+                  px={3}
+                  py={2}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
-                />
-                <Skeleton
-                  isLoaded={isLoaded}
-                  w="200px"
-                  h="40px"
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Nombre
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {habit.name}
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
-                />
-                <Skeleton
-                  isLoaded={isLoaded}
-                  w="200px"
-                  h="40px"
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Fecha de creación
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {habit.createdAt
+                      ? `${habit.createdAt
+                          .toDate()
+                          .toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                          })} de ${habit.createdAt
+                          .toDate()
+                          .toLocaleDateString("es-ES", {
+                            month: "long",
+                          })
+                          .replace(/^\w/, (c) =>
+                            c.toUpperCase()
+                          )} de ${habit.createdAt.toDate().getFullYear()}`
+                      : "Sin fecha de creación"}
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
                   borderRadius={themeOptions.borderRadius}
-                />
-              </Stack>
-              <Text as="h2" fontSize="lg" fontWeight="600">
-                Da el paso y construye tu mejor versión
-              </Text>
-              <Text as="h2" fontSize="sm" maxW="600px" textAlign="center">
-                Los hábitos son como los escalones de una escalera: al dar el
-                primer paso, el resto se va sumando uno a uno.
-              </Text>
-            </VStack>
-          )}
-        </TabPanel>
-        <TabPanel>
-          <VStack
-            w="100%"
-            alignItems="stretch"
-            justifyContent="flex-start"
-            spacing={4}
-          >
-            <Text mb={-4} fontSize="2xl" fontWeight={600}>
-              Información
-            </Text>
-            <Box
-              p={2}
-              pb={1}
-              border="2px solid var(--chakra-colors-chakra-border-color)"
-              borderRadius={themeOptions.borderRadius}
-            >
-              <Text fontSize="sm" fontWeight={500}>
-                Nombre
-              </Text>
-              <Text fontSize="xl" fontWeight={600}>
-                {habit.name}
-              </Text>
-            </Box>
-            <Box
-              p={2}
-              pb={1}
-              border="2px solid var(--chakra-colors-chakra-border-color)"
-              borderRadius={themeOptions.borderRadius}
-            >
-              <Text fontSize="sm" fontWeight={500}>
-                Fecha de creación
-              </Text>
-              <Text fontSize="xl" fontWeight={600}>
-                {habit.createdAt
-                  ? `${habit.createdAt.toDate().toLocaleDateString("es-ES", {
-                      day: "2-digit",
-                    })} de ${habit.createdAt
-                      .toDate()
-                      .toLocaleDateString("es-ES", {
-                        month: "long",
-                      })
-                      .replace(/^\w/, (c) =>
-                        c.toUpperCase()
-                      )} de ${habit.createdAt.toDate().getFullYear()}`
-                  : "Sin fecha de creación"}
-              </Text>
-            </Box>
-            <Text mt={2} mb={-4} fontSize="2xl" fontWeight={600}>
-              Registros
-            </Text>
-            <Box
-              p={2}
-              pb={1}
-              border="2px solid var(--chakra-colors-chakra-border-color)"
-              borderRadius={themeOptions.borderRadius}
-            >
-              <Text fontSize="sm" fontWeight={500}>
-                Último registro
-              </Text>
-              <Text fontSize="xl" fontWeight={600}>
-                {habit.name}
-              </Text>
-            </Box>
-            <Box
-              p={2}
-              pb={1}
-              border="2px solid var(--chakra-colors-chakra-border-color)"
-              borderRadius={themeOptions.borderRadius}
-            >
-              <Text fontSize="sm" fontWeight={500}>
-                Fecha de creación
-              </Text>
-              <Text fontSize="xl" fontWeight={600}>
-                {habit.createdAt
-                  ? `${habit.createdAt.toDate().toLocaleDateString("es-ES", {
-                      day: "2-digit",
-                    })} de ${habit.createdAt
-                      .toDate()
-                      .toLocaleDateString("es-ES", {
-                        month: "long",
-                      })
-                      .replace(/^\w/, (c) =>
-                        c.toUpperCase()
-                      )} de ${habit.createdAt.toDate().getFullYear()}`
-                  : "Sin fecha de creación"}
-              </Text>
-            </Box>
-          </VStack>
-        </TabPanel>
-      </TabPanels>
-    </Tabs>
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Recordatorio
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {habit.reminder ? habit.reminder : "--:--"}h
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
+                  borderRadius={themeOptions.borderRadius}
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Meta a lograr
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {habit.goal.value}
+                    {habit.goal.unit === "times" ? " veces " : " minutos "}
+                    {habit.goal.period === "day"
+                      ? "al día"
+                      : "week"
+                      ? "a la semana"
+                      : "al més"}
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
+                  borderRadius={themeOptions.borderRadius}
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Repetición
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {habit.repeat.type === "month"
+                      ? `El ${habit.repeat.dayOfMonth} de cada més`
+                      : habit.repeat.type === "day"
+                      ? habit.repeat.days
+                      : `Cada ${habit.repeat.interval} ${repeatType}`
+                    }
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
+                  borderRadius={themeOptions.borderRadius}
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Área
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                    {areaName || habit.area}
+                  </Text>
+                </Box>
+                <Box
+                  p={2}
+                  pb={1}
+                  border="2px solid var(--chakra-colors-chakra-border-color)"
+                  borderRadius={themeOptions.borderRadius}
+                  bg={colorMode === "light" ? "white" : "black"}
+                >
+                  <Text fontSize="sm" fontWeight={500}>
+                    Fecha de comienzo
+                  </Text>
+                  <Text fontSize="xl" fontWeight={600}>
+                      {habit.startDate
+                      ? `${habit.startDate
+                          .toDate()
+                          .toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                          })} de ${habit.startDate
+                          .toDate()
+                          .toLocaleDateString("es-ES", {
+                            month: "long",
+                          })
+                          .replace(/^\w/, (c) =>
+                            c.toUpperCase()
+                          )} de ${habit.startDate.toDate().getFullYear()}`
+                      : "Sin fecha de comienzo"}
+                  </Text>
+                </Box>
+              </VStack>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+      ) : (
+        <NoDataPage type="habits" />
+      )}
+    </>
   );
 };
 
