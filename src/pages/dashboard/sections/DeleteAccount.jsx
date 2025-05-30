@@ -53,7 +53,6 @@ const DeleteAccountButton = () => {
         await reauthenticateWithCredential(user, credential);
         return true;
       } catch (error) {
-        console.error("Error de reautenticación:", error.code);
         switch (error.code) {
           case "auth/wrong-password":
             setAuthError("Contraseña incorrecta.");
@@ -75,7 +74,6 @@ const DeleteAccountButton = () => {
         await reauthenticateWithPopup(user, provider);
         return true;
       } catch (error) {
-        console.error("Error de reautenticación con Google:", error.code);
         setAuthError("Error al verificar la cuenta con Google.");
         return false;
       }
@@ -118,7 +116,6 @@ const DeleteAccountButton = () => {
         });
         navigate("/");
       } catch (error) {
-        console.error("Error al eliminar la cuenta:", error);
         toast({
           title: <Text fontWeight={600}>Error al eliminar la cuenta</Text>,
           description: "No se pudo eliminar la cuenta. Inténtalo de nuevo.",
@@ -150,7 +147,7 @@ const DeleteAccountButton = () => {
         <ModalOverlay />
         <ModalContent
           borderRadius={themeOptions.borderRadius}
-          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+          bg={colorMode === "light" ? "gray.100" : "gray.900"}
         >
           <ModalHeader p={4} fontSize="lg" fontWeight={600}>
             ¿Seguro que quieres eliminar tu cuenta?

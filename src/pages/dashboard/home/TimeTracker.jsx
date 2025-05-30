@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   Box,
   Text,
@@ -16,58 +22,51 @@ import { useTheme } from "../../../context/ThemeContext";
 import * as LuIcons from "react-icons/lu";
 import { FaPlay, FaPause, FaStop } from "react-icons/fa";
 
-const TimeTracker = () => {
-  const { themeOptions } = useTheme();
-  const { colorMode } = useColorMode();
-  const [hours, setHours] = useState(0);
-  const [minutes, setMinutes] = useState(0);
-  const [seconds, setSeconds] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const intervalRef = useRef(null);
-  const { width, height } = useWindowSize();
-
-  function useWindowSize() {
-    const [windowSize, setWindowSize] = useState({
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
-
-    useEffect(() => {
-      function handleResize() {
-        setWindowSize({
-          width: window.innerWidth,
-          height: window.innerHeight,
-        });
-      }
-
-      window.addEventListener("resize", handleResize);
-
-      return () => window.removeEventListener("resize", handleResize);
-    }, []);
-
-    return windowSize;
-  }
-
-  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+function useWindowSize() {
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
 
   useEffect(() => {
-    setTimeLeft(totalSeconds);
-  }, [totalSeconds]);
+    function handleResize() {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    }
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return windowSize;
+}
+
+function useTimer(initialSeconds = 0) {
+  const [timeLeft, setTimeLeft] = useState(initialSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+  const intervalRef = useRef(null);
+
+  const hasBeenStartedRef = useRef(false);
+
+  useEffect(() => {
+    setTimeLeft(initialSeconds);
+    setIsRunning(false);
+    clearInterval(intervalRef.current);
+    hasBeenStartedRef.current = false;
+  }, [initialSeconds]);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
+      hasBeenStartedRef.current = true;
       intervalRef.current = setInterval(() => {
         setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
-      setShowConfetti(true);
       clearInterval(intervalRef.current);
-      setTimeout(() => {
-        setShowConfetti(false);
-      }, 3000);
     } else {
       clearInterval(intervalRef.current);
     }
@@ -75,36 +74,112 @@ const TimeTracker = () => {
     return () => clearInterval(intervalRef.current);
   }, [isRunning, timeLeft]);
 
-  const handlePlayPause = () => {
-    setIsRunning(!isRunning);
-  };
+  const start = useCallback(() => {
+    if (timeLeft > 0) {
+      setIsRunning(true);
+    }
+  }, [timeLeft]);
 
-  const handleReset = () => {
+  const pause = useCallback(() => {
     setIsRunning(false);
-    setTimeLeft(totalSeconds);
-    setHours(Math.floor(totalSeconds / 3600));
-    setMinutes(Math.floor((totalSeconds % 3600) / 60));
-    setSeconds(totalSeconds % 60);
-  };
+  }, []);
 
-  const formatTime = (time) => {
-    const hrs = Math.floor(time / 3600);
-    const mins = Math.floor((time % 3600) / 60);
-    const secs = time % 60;
+  const reset = useCallback(() => {
+    setIsRunning(false);
+    setTimeLeft(initialSeconds);
+    hasBeenStartedRef.current = false;
+  }, [initialSeconds]);
+
+  const toggle = useCallback(() => {
+    if (timeLeft > 0 || isRunning) {
+      setIsRunning((prev) => {
+        if (!prev) {
+          hasBeenStartedRef.current = true;
+        }
+        return !prev;
+      });
+    }
+  }, [timeLeft, isRunning]);
+  return {
+    timeLeft,
+    isRunning,
+    start,
+    pause,
+    reset,
+    toggle,
+    setTimeLeft,
+    hasBeenStartedRef,
+  };
+}
+
+const TimeTracker = () => {
+  const { themeOptions } = useTheme();
+  const { colorMode } = useColorMode();
+  const { width, height } = useWindowSize();
+  const [initialHours, setInitialHours] = useState(0);
+  const [initialMinutes, setInitialMinutes] = useState(0);
+  const [initialSeconds, setInitialSeconds] = useState(0);
+
+  const initialTimeInSeconds = useMemo(
+    () => initialHours * 3600 + initialMinutes * 60 + initialSeconds,
+    [initialHours, initialMinutes, initialSeconds]
+  );
+
+  const { timeLeft, isRunning, toggle, reset, hasBeenStartedRef } =
+    useTimer(initialTimeInSeconds);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (
+      timeLeft === 0 &&
+      !isRunning &&
+      initialTimeInSeconds > 0 &&
+      hasBeenStartedRef.current
+    ) {
+      setShowConfetti(true);
+      hasBeenStartedRef.current = false;
+      const confettiTimeout = setTimeout(() => {
+        setShowConfetti(false);
+      }, 3000);
+      return () => clearTimeout(confettiTimeout);
+    }
+  }, [timeLeft, isRunning, initialTimeInSeconds, hasBeenStartedRef]);
+
+  const formatTime = useCallback((timeInSeconds) => {
+    const hrs = Math.floor(timeInSeconds / 3600);
+    const mins = Math.floor((timeInSeconds % 3600) / 60);
+    const secs = timeInSeconds % 60;
+
     return `${hrs.toString().padStart(2, "0")}:${mins
       .toString()
       .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+  }, []);
+
+  const handleHoursChange = useCallback((e) => {
+    const value = parseInt(e.target.value);
+    setInitialHours(isNaN(value) || value < 0 ? 0 : value);
+  }, []);
+
+  const handleMinutesChange = useCallback((e) => {
+    const value = parseInt(e.target.value);
+    setInitialMinutes(isNaN(value) || value < 0 ? 0 : Math.min(value, 59));
+  }, []);
+
+  const handleSecondsChange = useCallback((e) => {
+    const value = parseInt(e.target.value);
+    setInitialSeconds(isNaN(value) || value < 0 ? 0 : Math.min(value, 59));
+  }, []);
+
+  const canStartTimer = initialTimeInSeconds > 0;
 
   return (
     <Box
-      p={2}
-      pt={1}
+      p={4}
       borderRadius={themeOptions.borderRadius}
-      bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
+      bg={colorMode === "light" ? "white" : "black"}
       border="2px solid var(--chakra-colors-chakra-border-color)"
     >
-      <HStack p={2} alignItems="center" justifyContent="flex-start" spacing={2}>
+      <HStack pb={2} alignItems="center" justifyContent="flex-start" spacing={2}>
         <LuIcons.LuTimer size="25px" />
         <Text fontSize="xl" fontWeight={600}>
           Temporizador
@@ -129,8 +204,9 @@ const TimeTracker = () => {
               placeholder="Horas"
               borderRadius={themeOptions.borderRadius}
               _focusVisible="none"
-              value={hours}
-              onChange={(e) => setHours(parseInt(e.target.value) || 0)}
+              value={initialHours}
+              onChange={handleHoursChange}
+              isDisabled={isRunning}
             />
           </FormControl>
           <Text fontSize="xl" fontWeight={600}>
@@ -153,8 +229,9 @@ const TimeTracker = () => {
               placeholder="Minutos"
               borderRadius={themeOptions.borderRadius}
               _focusVisible="none"
-              value={minutes}
-              onChange={(e) => setMinutes(parseInt(e.target.value) || 0)}
+              value={initialMinutes}
+              onChange={handleMinutesChange}
+              isDisabled={isRunning}
             />
           </FormControl>
           <Text fontSize="xl" fontWeight={600}>
@@ -169,7 +246,6 @@ const TimeTracker = () => {
             >
               Segundos
             </FormLabel>
-
             <Input
               type="number"
               min="0"
@@ -178,8 +254,9 @@ const TimeTracker = () => {
               placeholder="Segundos"
               borderRadius={themeOptions.borderRadius}
               _focusVisible="none"
-              value={seconds}
-              onChange={(e) => setSeconds(parseInt(e.target.value) || 0)}
+              value={initialSeconds}
+              onChange={handleSecondsChange}
+              isDisabled={isRunning}
             />
           </FormControl>
         </HStack>
@@ -206,9 +283,10 @@ const TimeTracker = () => {
               bg={colorMode === "light" ? "#fff" : "#000"}
               color={colorMode === "light" ? "#000" : "#fff"}
               border="2px solid var(--chakra-colors-chakra-border-color)"
-              onClick={handlePlayPause}
+              onClick={toggle}
               borderRadius="full"
               _focusVisible="none"
+              isDisabled={!canStartTimer && !isRunning}
             >
               {isRunning ? <FaPause /> : <FaPlay />}
             </Button>
@@ -225,9 +303,10 @@ const TimeTracker = () => {
               color={
                 colorMode === "light" ? (isRunning ? "#fff" : "#000") : "#fff"
               }
-              onClick={handleReset}
+              onClick={reset}
               borderRadius="full"
               _focusVisible="none"
+              isDisabled={!canStartTimer && !isRunning}
             >
               <FaStop />
             </Button>

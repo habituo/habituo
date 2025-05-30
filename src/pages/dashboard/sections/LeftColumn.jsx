@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
 import { useTheme } from "../../../context/ThemeContext";
+import { useAuthUser } from "../../../context/AuthUserContext";
 import {
   Skeleton,
   Link,
@@ -22,13 +22,11 @@ import {
   IconButton,
   Tooltip,
   Divider,
+  Center,
+  Spinner,
+  Spacer,
 } from "@chakra-ui/react";
-import {
-  deleteAreaById,
-  getAreas,
-  fetchUserDataFromFirestore,
-  logoutUser,
-} from "../../../hooks/database";
+import { deleteAreaById, getAreas } from "../../../hooks/database";
 import HabituoLogo from "../../../assets/images/habituo-logo.svg";
 import ModalWithTabs from "./ModalWithTabs";
 import * as LuIcons from "react-icons/lu";
@@ -39,18 +37,16 @@ import {
   ConfirmationModal,
 } from "../../../routes/index";
 
-const LeftColumn = ({ userInfo }) => {
-  const { user } = useAuth();
+const LeftColumn = () => {
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const { areaId } = useParams();
-
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, logout } = useAuthUser();
   const [areas, setAreas] = useState([]);
+  const [loadingAreas, setLoadingAreas] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState(null);
   const [contextMenuPosition, setContextMenuPosition] = useState({
@@ -87,27 +83,40 @@ const LeftColumn = ({ userInfo }) => {
     onClose: onCloseLogoutConfirmation,
   } = useDisclosure();
 
-  const fetchAreasData = useCallback(async () => {
-    setLoading(true);
-    const unsubscribe = getAreas((fetchedAreas) => {
-      setAreas(fetchedAreas);
-      setLoading(false);
-    });
+  const fetchAreasData = useCallback(() => {
+    if (!user || loading) {
+      setLoadingAreas(false);
+      return () => {};
+    }
+
+    setLoadingAreas(true);
+    const unsubscribe = getAreas(
+      user.uid,
+      (fetchedAreas) => {
+        setAreas(fetchedAreas);
+        setLoadingAreas(false);
+      },
+      (error) => {
+        toast({
+          title: <Text fontWeight={600}>Error al cargar áreas</Text>,
+          description: "No se pudieron cargar tus áreas. Inténtalo de nuevo.",
+          status: "error",
+          position: "bottom",
+        });
+        setLoadingAreas(false);
+      }
+    );
     return unsubscribe;
-  }, []);
+  }, [user, loading, toast]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (userInfo?.uid) {
-        const userDataFromDB = await fetchUserDataFromFirestore(userInfo.uid);
-        setUserData(userDataFromDB);
-        await fetchAreasData();
-      } else {
-        setLoading(false);
+    const unsubscribe = fetchAreasData();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-    fetchData();
-  }, [userInfo?.uid, fetchAreasData]);
+  }, [fetchAreasData]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -123,12 +132,30 @@ const LeftColumn = ({ userInfo }) => {
   }, []);
 
   const userName =
-    userInfo?.displayName ||
-    userData?.name ||
-    userInfo?.email?.split("@")[0] ||
-    "Usuario";
+    user?.displayName || user?.name || user?.email?.split("@")[0] || "Usuario";
 
-  const handleLogout = () => logoutUser(toast);
+  const userPhotoURL = user?.photoURL
+    ? `//wsrv.nl/?url=${user.photoURL}`
+    : undefined;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: <Text fontWeight={600}>Sesión cerrada</Text>,
+        description: "Has cerrado sesión correctamente.",
+        status: "success",
+        position: "bottom",
+      });
+    } catch (error) {
+      toast({
+        title: <Text fontWeight={600}>Error al cerrar sesión</Text>,
+        description: error.message || "No se pudo cerrar sesión.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+  };
 
   const handleContextMenu = (e, area) => {
     e.preventDefault();
@@ -140,22 +167,27 @@ const LeftColumn = ({ userInfo }) => {
   const handleDelete = async () => {
     if (!selectedArea) return;
     try {
-      await deleteAreaById(selectedArea.id);
+      await deleteAreaById(selectedArea.id, user.uid);
       setContextMenuVisible(false);
       onCloseDeleteDialog();
+      toast({
+        title: <Text fontWeight="600">Área eliminada</Text>,
+        description: "El área ha sido eliminada correctamente.",
+        status: "success",
+        position: "bottom",
+      });
     } catch (error) {
       toast({
         title: <Text fontWeight="600">Error al eliminar el área</Text>,
         description: error.message,
         status: "error",
-        isClosable: true,
         position: "bottom",
       });
     }
   };
 
   const handleConfirmLogout = () => {
-    logoutUser(toast);
+    handleLogout();
     onCloseLogoutConfirmation();
   };
 
@@ -174,6 +206,34 @@ const LeftColumn = ({ userInfo }) => {
     setSelectedArea(null);
   };
 
+  if (loading || !user || loadingAreas) {
+    return (
+      <VStack p={4} w="100%" h="100vh" spacing={4} align="start">
+        <Center w="100%" h="80px">
+          <Spinner size="lg" color={themeOptions.focusColor} />
+        </Center>
+        <Skeleton h="20px" w="80%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="20px" w="70%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="20px" w="60%" borderRadius={themeOptions.borderRadius} />
+        <Divider my={4} />
+        <Skeleton h="30px" w="90%" borderRadius={themeOptions.borderRadius} />
+        <VStack w="100%" spacing={2}>
+          {[...Array(5)].map((_, i) => (
+            <Skeleton
+              key={i}
+              h="40px"
+              w="100%"
+              borderRadius={themeOptions.borderRadius}
+            />
+          ))}
+        </VStack>
+        <Spacer />
+        <Skeleton h="40px" w="100%" borderRadius={themeOptions.borderRadius} />
+        <Skeleton h="40px" w="100%" borderRadius={themeOptions.borderRadius} />
+      </VStack>
+    );
+  }
+
   return (
     <VStack
       as="nav"
@@ -186,13 +246,10 @@ const LeftColumn = ({ userInfo }) => {
       justifyContent="stretch"
       spacing={2}
     >
-      {/* General */}
       <VStack align="stretch" spacing={1}>
-        {/* General - Logo */}
         <Link p={2} w="100%" href="/" display="flex" justifyContent="center">
-          <Image src={HabituoLogo} h="26px" alt="Logotipo de Habituo" />
+          <Image src={HabituoLogo} h="26px" alt="Logotipo de Habituo App" />
         </Link>
-        {/* General - Profile */}
         <Popover placement="right-start">
           <PopoverTrigger>
             <Button
@@ -200,26 +257,18 @@ const LeftColumn = ({ userInfo }) => {
               py={6}
               w="100%"
               justifyContent="flex-start"
-              color={colorMode === "light" ? "#000" : "#fff"}
+              color={colorMode === "light" ? "#000000" : "#ffffff"}
               _focusVisible="none"
               aria-label="Perfil de usuario"
             >
               <Flex align="center" gap={2} overflow="hidden">
-                <Avatar
-                  src={
-                    userInfo.photoURL
-                      ? `//wsrv.nl/?url=${userInfo.photoURL}`
-                      : undefined
-                  }
-                  name={userName}
-                  size="sm"
-                />
+                <Avatar src={userPhotoURL} name={userName} size="sm" />
                 <VStack alignItems="flex-start" spacing={0} overflow="hidden">
                   <Text fontSize="sm" fontWeight={600} isTruncated>
                     {userName}
                   </Text>
                   <Text fontSize="xs" fontWeight={400} isTruncated>
-                    {userInfo.email}
+                    {user?.email}
                   </Text>
                 </VStack>
               </Flex>
@@ -252,7 +301,7 @@ const LeftColumn = ({ userInfo }) => {
                   borderRadius={0}
                   borderBottomRadius={themeOptions.borderRadius}
                   _focusVisible="none"
-                  onClick={handleLogout}
+                  onClick={onOpenLogoutConfirmation}
                 >
                   Cerrar sesión
                 </Button>
@@ -260,7 +309,6 @@ const LeftColumn = ({ userInfo }) => {
             </PopoverBody>
           </PopoverContent>
         </Popover>
-        {/* General - List */}
         <Button
           as={Button}
           px={3}
@@ -278,24 +326,21 @@ const LeftColumn = ({ userInfo }) => {
           Inicio
         </Button>
       </VStack>
-
       <Divider />
-      {/* Habits */}
       <VStack align="stretch" spacing={1}>
-        {/* Habits - Title */}
         <HStack justifyContent="space-between">
           <Text
             fontSize="xs"
             fontWeight={600}
             textTransform="uppercase"
-            color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
           >
             Hábitos
           </Text>
           <Tooltip
             label="Añadir hábito"
             placement="top"
-            bg={colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"}
+            bg={colorMode === "light" ? "black" : "white"}
             borderRadius={themeOptions.borderRadius}
             hasArrow
           >
@@ -304,7 +349,6 @@ const LeftColumn = ({ userInfo }) => {
             </IconButton>
           </Tooltip>
         </HStack>
-        {/* Habits - List */}
         <VStack spacing={1}>
           <Button
             as={Button}
@@ -325,28 +369,25 @@ const LeftColumn = ({ userInfo }) => {
             Todos los hábitos
           </Button>
         </VStack>
-        {/* Habits - Modal */}
         <ModalHabit
           isOpen={isOpenCreateHabitModal}
           onClose={onCloseCreateHabitModal}
         />
       </VStack>
-      {/* Areas */}
       <VStack align="stretch" spacing={1}>
-        {/* Areas - Title */}
         <HStack alignItems="center" justifyContent="space-between">
           <Text
             fontSize="xs"
             fontWeight={600}
             textTransform="uppercase"
-            color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
           >
             Áreas
           </Text>
           <Tooltip
             label="Añadir área"
             placement="top"
-            bg={colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"}
+            bg={colorMode === "light" ? "black" : "white"}
             borderRadius={themeOptions.borderRadius}
             hasArrow
           >
@@ -355,34 +396,9 @@ const LeftColumn = ({ userInfo }) => {
             </IconButton>
           </Tooltip>
         </HStack>
-        {/* Areas - List */}
         <VStack
           maxH="350px"
           overflow="auto"
-          sx={{
-            "&": {
-              overflowX: "hidden",
-              transition: "width 0.3s ease-in-out",
-            },
-            "&::-webkit-scrollbar": {
-              width: 0,
-              transition: "width 1s ease-in-out",
-            },
-            "&:hover::-webkit-scrollbar": {
-              width: 1,
-            },
-            "&::-webkit-scrollbar-thumb": {
-              backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-              borderRadius: themeOptions.borderRadius,
-            },
-            "&::-webkit-scrollbar-thumb:hover": {
-              backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-            },
-            "&::-webkit-scrollbar-track": {
-              backgroundColor: "transparent",
-              borderRadius: themeOptions.borderRadius,
-            },
-          }}
           spacing={1}
         >
           <Button
@@ -401,30 +417,10 @@ const LeftColumn = ({ userInfo }) => {
           >
             Todas las áreas
           </Button>
-          {loading ? (
-            <VStack w="100%" alignItems="stretch" spacing={1}>
-              {Array.from({ length: 3 }).map((_, index) => (
-                <HStack
-                  key={index}
-                  p={2}
-                  w="100%"
-                  bg={colorMode === "light" ? "#00000010" : "#ffffff10"}
-                  borderRadius={themeOptions.borderRadius}
-                  alignItems="center"
-                >
-                  <Skeleton
-                    w="20px"
-                    h="20px"
-                    borderRadius={themeOptions.borderRadius}
-                  />
-                  <Skeleton
-                    w="calc(100% - 20px - 8px)"
-                    h="20px"
-                    borderRadius={themeOptions.borderRadius}
-                  />
-                </HStack>
-              ))}
-            </VStack>
+          {areas.length === 0 && !loadingAreas ? (
+            <Text fontSize="sm" py={2} textAlign="left">
+              No tienes áreas creadas.
+            </Text>
           ) : (
             <VStack w="100%" alignItems="stretch" spacing={1}>
               {areas.map((area) => {
@@ -462,8 +458,8 @@ const LeftColumn = ({ userInfo }) => {
                           left={contextMenuPosition.x}
                           bg={
                             colorMode === "light"
-                              ? "rgb(245, 245, 245)"
-                              : "rgb(23, 23, 23)"
+                              ? "gray.100"
+                              : "gray.900"
                           }
                           borderRadius={themeOptions.borderRadius}
                           borderWidth="1px"
@@ -503,7 +499,6 @@ const LeftColumn = ({ userInfo }) => {
               })}
             </VStack>
           )}
-          {/* Areas - Modal */}
           <ModalArea
             isOpen={isCreateModalOpen}
             onClose={() => {
@@ -512,7 +507,6 @@ const LeftColumn = ({ userInfo }) => {
             }}
             selectedArea={selectedArea}
           />
-          {/* Modal - Logout */}
           <ConfirmationModal
             isOpen={isLogoutConfirmationOpen}
             onClose={onCloseLogoutConfirmation}
@@ -521,7 +515,6 @@ const LeftColumn = ({ userInfo }) => {
             onConfirm={handleConfirmLogout}
             confirmButtonText="Sí, cerrar sesión"
           />
-          {/* Modal - Delete area */}
           <ConfirmationModal
             isOpen={isOpenDeleteDialog}
             onClose={onCloseDeleteDialog}
@@ -537,22 +530,18 @@ const LeftColumn = ({ userInfo }) => {
           />
         </VStack>
       </VStack>
-
       <Divider />
-      {/* Custom */}
       <VStack align="stretch" spacing={1}>
-        {/* Custom - Title */}
         <HStack alignItems="center" justifyContent="flex-start">
           <Text
             fontSize="xs"
             fontWeight={600}
             textTransform="uppercase"
-            color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+            color={colorMode === "light" ? "gray.400" : "gray.600"}
           >
             Ajustes generales
           </Text>
         </HStack>
-        {/* Areas - List */}
         <VStack spacing={1}>
           <Button
             as={Button}
@@ -569,12 +558,12 @@ const LeftColumn = ({ userInfo }) => {
           >
             Ajustes generales
           </Button>
-          {userData && (
+          {user && (
             <ModalWithTabs
               isOpen={isProfileModalOpen}
               onClose={onCloseProfileModal}
-              userData={userData}
-              userInfo={userInfo}
+              userData={user}
+              user={user}
             />
           )}
           <CustomThemePanel />
@@ -586,7 +575,7 @@ const LeftColumn = ({ userInfo }) => {
             justifyContent="flex-start"
             fontSize="sm"
             color={
-              colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"
+              colorMode === "light" ? "black" : "white"
             }
             onClick={() => navigate("/")}
             leftIcon={<LuIcons.LuArrowLeft size="16px" />}
@@ -596,7 +585,6 @@ const LeftColumn = ({ userInfo }) => {
           </Button>
         </VStack>
       </VStack>
-      {/* App Version */}
       <Text
         position="absolute"
         bottom={1}
@@ -605,7 +593,7 @@ const LeftColumn = ({ userInfo }) => {
         textAlign="center"
         fontSize="xs"
         userSelect="none"
-        color={colorMode === "light" ? "#00000050" : "#ffffff50"}
+        color={colorMode === "light" ? "gray.400" : "#ffffff50"}
       >
         v0.0.1 - Habituo App
       </Text>

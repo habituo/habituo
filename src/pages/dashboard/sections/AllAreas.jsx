@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  getAreasWithHabitCounts,
-  deleteAreaById,
-} from "../../../hooks/database";
+import { useTheme } from "../../../context/ThemeContext";
+import { useAuthUser } from "../../../context/AuthUserContext";
+import { subscribeToAreas, deleteAreaById } from "../../../hooks/database";
 import {
   ColumnHeader,
   ModalArea,
@@ -22,16 +21,15 @@ import {
   useColorMode,
   useToast,
 } from "@chakra-ui/react";
-import { useAuth } from "../../../context/AuthContext";
-import { useTheme } from "../../../context/ThemeContext";
 
 const AllAreas = () => {
   const { colorMode } = useColorMode();
   const { themeOptions } = useTheme();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuthUser();
   const toast = useToast();
   const [areas, setAreas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedArea, setSelectedArea] = useState(null);
   const [areaToDelete, setAreaToDelete] = useState(null);
   const [searchParams] = useSearchParams();
@@ -46,71 +44,127 @@ const AllAreas = () => {
     onClose: closeModalArea,
   } = useDisclosure();
 
-  useEffect(() => {
+  const unsubscribeRef = React.useRef(null);
+
+  const refreshAreas = useCallback(() => {
     if (!user) {
+      setAreas([]);
       setIsLoading(false);
       return;
     }
 
-    const fetchAreas = async () => {
-      setIsLoading(true);
-      try {
-        const areasData = await getAreasWithHabitCounts();
-        setAreas(areasData);
-      } catch (error) {
-        console.error("Error fetching areas with habit counts:", error);
+    setIsLoading(true);
+
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    const unsubscribe = subscribeToAreas(
+      user.uid,
+      (fetchedAreas) => {
+        setAreas(fetchedAreas);
+        setIsLoading(false);
+      },
+      (error) => {
         setAreas([]);
-      } finally {
+        setIsLoading(false);
+        toast({
+          title: <Text fontWeight={600}>Error al cargar áreas</Text>,
+          description: "No se pudieron cargar las áreas. Intenta de nuevo.",
+          status: "error",
+          position: "bottom",
+        });
+      }
+    );
+
+    unsubscribeRef.current = unsubscribe;
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (user) {
+        refreshAreas();
+      } else {
+        setAreas([]);
         setIsLoading(false);
       }
+    }
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     };
+  }, [user, authLoading, refreshAreas]);
 
-    fetchAreas();
-  }, [user]);
+  const confirmDelete = useCallback(
+    (area) => {
+      setAreaToDelete(area);
+      openDeleteModal();
+    },
+    [openDeleteModal]
+  );
 
-  const confirmDelete = (area) => {
-    setAreaToDelete(area);
-    openDeleteModal();
-  };
+  const handleEdit = useCallback(
+    (area) => {
+      setSelectedArea(area);
+      openModalArea();
+    },
+    [openModalArea]
+  );
 
-  const handleEdit = (area) => {
-    setSelectedArea(area);
-    openModalArea();
-  };
+  const handleDelete = useCallback(async () => {
+    if (!areaToDelete || !user?.uid) return;
 
-  const handleDelete = async () => {
-    if (!areaToDelete) return;
-
+    setIsSaving(true);
     try {
-      await deleteAreaById(areaToDelete.id);
-      setAreas((prevAreas) =>
-        prevAreas.filter((a) => a.id !== areaToDelete.id)
-      );
+      await deleteAreaById(areaToDelete.id, user.uid);
+      refreshAreas();
+
       closeDeleteModal();
+      setAreaToDelete(null);
 
       toast({
-        title: <Text fontWeight="600">Área eliminada</Text>,
+        title: <Text fontWeight={600}>Área eliminada</Text>,
         description: `Se eliminó el área "${areaToDelete.name}" correctamente.`,
         status: "success",
         position: "bottom",
       });
     } catch (error) {
       toast({
-        title: <Text fontWeight="600">Error al eliminar</Text>,
-        description: "No se pudo eliminar el área. Inténtalo de nuevo.",
+        title: <Text fontWeight={600}>Error al eliminar</Text>,
+        description:
+          error.message || "No se pudo eliminar el área. Inténtalo de nuevo.",
         status: "error",
         position: "bottom",
       });
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [areaToDelete, user?.uid, closeDeleteModal, toast, refreshAreas]);
+
+  const handleCloseModalArea = useCallback(
+    (shouldRefresh = false) => {
+      setSelectedArea(null);
+      closeModalArea();
+      if (shouldRefresh) {
+        refreshAreas();
+      }
+    },
+    [closeModalArea, refreshAreas]
+  );
 
   const orderBy = searchParams.get("order_by") || "asc";
   const viewLayout = searchParams.get("layout") || "grid";
-  const sortedAreas = [...areas].sort((a, b) => {
-    if (orderBy === "asc") return a.name.localeCompare(b.name);
-    if (orderBy === "desc") return b.name.localeCompare(a.name);
-    return 0;
-  });
+  const sortedAreas = Array.isArray(areas)
+    ? [...areas].sort((a, b) => {
+        if (orderBy === "asc") return a.name.localeCompare(b.name);
+        if (orderBy === "desc") return b.name.localeCompare(a.name);
+        return 0;
+      })
+    : [];
 
   return (
     <Box
@@ -118,26 +172,34 @@ const AllAreas = () => {
       minH="100vh"
       maxH="100vh"
       overflowY="scroll"
-      sx={{
-        "&::-webkit-scrollbar": {
-          width: "6px",
-        },
-        "&::-webkit-scrollbar-thumb": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-          borderRadius: "4px",
-        },
-        "&::-webkit-scrollbar-thumb:hover": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-        },
-        "&::-webkit-scrollbar-track": {
-          backgroundColor: "transparent",
-          borderRadius: "4px",
-        },
-      }}
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+      bg={colorMode === "light" ? "gray.100" : "gray.900"}
     >
-      <ColumnHeader page="all-areas" title="Todas las áreas" />
-      {isLoading ? (
+      <ColumnHeader
+        page="all-areas"
+        title="Todas las áreas"
+        onModalCloseAndRefresh={refreshAreas}
+      />
+      {authLoading ? (
+        <Flex
+          justifyContent="center"
+          alignItems="center"
+          minH="97vh"
+          direction="column"
+          gap={4}
+        >
+          <Spinner
+            size="lg"
+            color={themeOptions.focusColor}
+            aria-label="Cargando usuario"
+          />
+          <Text fontSize="lg">Cargando usuario...</Text>
+        </Flex>
+      ) : !user?.uid ? (
+        <NoDataPage
+          type="not-authenticated"
+          message="Necesitas iniciar sesión para ver tus áreas."
+        />
+      ) : isLoading ? (
         <Flex
           justifyContent="center"
           alignItems="center"
@@ -150,10 +212,7 @@ const AllAreas = () => {
             color={themeOptions.focusColor}
             aria-label="Cargando áreas"
           />
-          <Text
-            as="h3"
-            fontSize="md"
-          >
+          <Text as="h3" fontSize="md">
             Cargando áreas...
           </Text>
         </Flex>
@@ -182,15 +241,13 @@ const AllAreas = () => {
             title={`¿Deseas eliminar el área: ${areaToDelete?.name}?`}
             description="Perderás todos los hábitos que contenga dicho área y sus progresos. Esta acción no se puede deshacer."
             onConfirm={handleDelete}
-            confirmButtonText="Sí, eliminar"
+            confirmButtonText={isSaving ? "Eliminando..." : "Sí, eliminar"}
             cancelButtonText="No, cancelar"
+            isConfirmButtonLoading={isSaving}
           />
           <ModalArea
             isOpen={isModalAreaOpen}
-            onClose={() => {
-              setSelectedArea(null);
-              closeModalArea();
-            }}
+            onClose={handleCloseModalArea}
             selectedArea={selectedArea}
           />
         </VStack>

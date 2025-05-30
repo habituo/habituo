@@ -7,15 +7,8 @@ const HeatMap = (props) => {
   const { themeOptions } = useTheme();
   const [colorTheme, setColorTheme] = useState("#DD6B20");
   const [heatmapSeries, setHeatmapSeries] = useState([]);
-
   const { userId, areaId, habitId } = props;
 
-  /**
-   * @function fetchChartRecords
-   * @async
-   * @description Fetches the records for the specified habit, grouped by day,
-   * using the `getHabitRecordsGroupedByDay` function from `database.js`.
-   */
   const fetchChartRecords = async () => {
     try {
       const groupedRecords = await getHabitRecordsGroupedByDay(
@@ -27,24 +20,14 @@ const HeatMap = (props) => {
       const transformedSeries = transformRecordsToHeatmapSeries(groupedRecords);
       setHeatmapSeries(transformedSeries);
     } catch (error) {
-      console.error("Error fetching habit records for the chart:", error);
+      
     }
   };
 
-  /**
-   * @useEffect
-   * @description Fetches the habit records when the component mounts or when
-   * the userId, areaId, or habitId changes.
-   */
   useEffect(() => {
     fetchChartRecords();
   }, [userId, areaId, habitId]);
 
-  /**
-   * @useEffect
-   * @description Updates the chart's color theme based on the `focusColor`
-   * from the theme options.
-   */
   useEffect(() => {
     const colorMap = {
       gray: "#718096",
@@ -108,14 +91,6 @@ const HeatMap = (props) => {
     },
   });
 
-  /**
-   * @function transformRecordsToHeatmapSeries
-   * @description Transforms the grouped habit records into the series format
-   * required by the ApexCharts heatmap, with days of the week on the X-axis
-   * and days of the month on the Y-axis.
-   * @param {Array<object>} groupedRecords - An array of habit records grouped by day.
-   * @returns {Array<object>} - An array of series objects for the heatmap.
-   */
   const transformRecordsToHeatmapSeries = (groupedRecords) => {
     if (!groupedRecords || groupedRecords.length === 0) {
       const now = new Date();
@@ -203,10 +178,6 @@ const HeatMap = (props) => {
     return heatmapData;
   };
 
-  /**
-   * @useEffect
-   * @description Updates the chart's series when the heatmap data changes.
-   */
   useEffect(() => {
     setState((prevState) => ({
       ...prevState,
@@ -232,10 +203,6 @@ const HeatMap = (props) => {
     }));
   }, [heatmapSeries, themeOptions]);
 
-  /**
-   * @useEffect
-   * @description Updates the chart's colors based on the theme.
-   */
   useEffect(() => {
     setState((prevState) => ({
       ...prevState,

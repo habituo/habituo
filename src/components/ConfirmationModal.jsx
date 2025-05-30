@@ -29,7 +29,7 @@ const ConfirmationModal = ({
       <AlertDialogOverlay>
         <AlertDialogContent
           borderRadius={themeOptions.borderRadius}
-          bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+          bg={colorMode === "light" ? "gray.100" : "gray.900"}
         >
           <AlertDialogHeader p={4} fontSize="lg" fontWeight="600">
             {title}

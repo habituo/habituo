@@ -1,7 +1,5 @@
-import React from "react";
-
 import {
-  ChakraProvider,
+  Link,
   Container,
   HStack,
   VStack,
@@ -10,10 +8,17 @@ import {
   Button,
   SimpleGrid,
   Box,
+  useColorMode,
+  Heading,
+  AccordionIcon,
+  AccordionPanel,
+  AccordionButton,
+  AccordionItem,
+  Accordion,
 } from "@chakra-ui/react";
 import { Navbar, Footer } from "../routes/index";
-import dataAnalysis from "../assets/images/data-analysis.svg";
-import customDashboard from "../assets/images/custom-dashboard.svg";
+import dataAnalysis from "../assets/images/illustrations/data-analysis.svg";
+import customDashboard from "../assets/images/illustrations/custom-dashboard.svg";
 import areasSection from "../assets/images/areas.svg";
 import habitsSection from "../assets/images/habits.svg";
 import calendarSection from "../assets/images/calendar.svg";
@@ -23,75 +28,176 @@ import chronoSection from "../assets/images/chrono.svg";
 import viewsSection from "../assets/images/views.svg";
 import allAreasSection from "../assets/images/all-areas.svg";
 import allHabitsSection from "../assets/images/all-habits.svg";
+import { useTheme } from "../context/ThemeContext";
+
+const FeatureCard = ({ title, description, children, ...rest }) => {
+  const { colorMode } = useColorMode();
+  const { themeOptions } = useTheme();
+  const isLight = colorMode === "light" ? true : false;
+
+  return (
+    <VStack
+      pt={{ base: 14, lg: 20 }}
+      pb={10}
+      px={4}
+      borderRadius={themeOptions.borderRadius}
+      bg={isLight ? "gray.100" : "gray.900"}
+      spacing={5}
+      flexDirection="column"
+      justifyContent="flex-end"
+      textAlign="center"
+      {...rest}
+    >
+      {children}
+      <Heading
+        as="h3"
+        fontSize={{ base: "xl", sm: "2xl", lg: "3xl" }}
+        fontWeight={600}
+        color={colorMode === "light" ? "black" : "white"}
+      >
+        {title}
+      </Heading>
+      <Text
+        maxW="90%"
+        textAlign="center"
+        fontSize={{ base: "md", sm: "lg", lg: "xl" }}
+        fontWeight={400}
+        color={isLight ? "gray.600" : "gray.400"}
+      >
+        {description}
+      </Text>
+    </VStack>
+  );
+};
 
 const Home = () => {
+  const { colorMode } = useColorMode();
+  const { themeOptions } = useTheme();
+  const isLight = colorMode === "light" ? true : false;
+
+  const faqItems = [
+    {
+      question: "¿Qué es Habituo y cómo me ayuda a construir hábitos?",
+      answer:
+        "Habituo es una plataforma diseñada para ayudarte a construir y mantener hábitos saludables. Te permite establecer metas, registrar tu progreso diario, visualizar tu consistencia a través de gráficos y recibir recordatorios para mantenerte en el camino. Al hacer visible tu avance, te mantiene motivado y facilita la creación de rutinas duraderas.",
+    },
+    {
+      question: "¿Puedo personalizar mis hábitos en Habituo?",
+      answer:
+        "¡Absolutamente! Habituo te ofrece total flexibilidad. Puedes crear hábitos para cualquier área de tu vida (salud, finanzas, desarrollo personal, etc.), establecer la frecuencia (diaria, semanal, etc.), el objetivo (ej. 'beber 8 vasos de agua'), y el tipo de seguimiento que prefieras (cuantitativo, binario).",
+    },
+    {
+      question: "¿Es Habituo gratuito?",
+      answer:
+        "Sí, Habituo ofrece una versión gratuita con funcionalidades esenciales para que puedas empezar a construir tus hábitos hoy mismo. También puede haber planes premium con características avanzadas para aquellos que buscan un seguimiento más profundo y herramientas adicionales. ¡Puedes probarlo gratis sin compromiso!",
+    },
+    {
+      question: "¿Necesito conocimientos técnicos para usar Habituo?",
+      answer:
+        "Para nada. Habituo está diseñado pensando en la simplicidad y la facilidad de uso. Su interfaz intuitiva te permite crear y seguir hábitos con solo unos pocos clics, sin necesidad de conocimientos técnicos. Si sabes usar una aplicación móvil o una página web básica, ya estás listo para usar Habituo.",
+    },
+    {
+      question: "¿Puedo usar Habituo en diferentes dispositivos?",
+      answer:
+        "Habituo es una aplicación web, lo que significa que puedes acceder a ella desde cualquier dispositivo con un navegador de internet (ordenador, tablet, smartphone). Tu progreso se sincroniza en la nube, así que siempre tendrás tus datos actualizados, estés donde estés.",
+    },
+  ];
+
   return (
     <>
       <Navbar />
 
-      <Container as="main" maxW="7xl" py={{ base: 10, md: 50, lg: 100 }}>
-        <VStack spacing={{ base: 8, lg: 10 }}>
-          <Text
+      <Container
+        as="main"
+        maxW="7xl"
+        py={{ base: 16, md: 20, lg: 24 }}
+        bg={isLight ? "gray.100" : "gray.900"}
+      >
+        <VStack spacing={{ base: 6, md: 8, lg: 10 }}>
+          <Heading
             as="h1"
-            maxW={{ base: "100%", md: "600px", lg: "900px" }}
-            fontSize={{ base: "50px", md: "80px", lg: "90px" }}
+            maxW={{ base: "100%", md: "800px", lg: "1000px" }}
+            fontSize={{ base: "4xl", md: "6xl", lg: "7xl" }}
             fontWeight={900}
-            lineHeight={{ base: "50px", md: "80px", lg: "90px" }}
+            lineHeight={{ base: "1.1", md: "1.1", lg: "1.1" }}
             textAlign="center"
+            color={colorMode === "light" ? "black" : "white"}
           >
-            Deja de soñar, empieza a construir
-          </Text>
+            Deja de soñar, empieza a{" "}
+            <Text as="span" color={themeOptions.focusColor}>
+              construir
+            </Text>
+          </Heading>
           <Text
-            as="p"
-            fontSize={{ base: "18px", lg: "20px" }}
+            fontSize={{ base: "lg", md: "xl", lg: "2xl" }}
             fontWeight={400}
             textAlign="center"
-            maxW={{ base: "100%", md: "500px", lg: "500px" }}
+            maxW={{ base: "90%", md: "600px", lg: "700px" }}
+            color={isLight ? "gray.600" : "gray.300"}
           >
             Tu plataforma para hábitos que te impulsan al éxito. Construye tu
-            mejor versión con Habituo.
+            mejor versión con{" "}
+            <Text as="span" fontWeight={600}>
+              Habituo
+            </Text>
+            .
           </Text>
           <Button
+            as={Link}
+            href="/register"
             p={{ base: 6, lg: 8 }}
-            fontSize={{ base: "md", lg: "lg" }}
-            fontWeight={400}
+            fontSize={{ base: "lg", lg: "xl" }}
             variant="solid"
-            colorScheme="orange"
-            onClick={() => (window.location.href = "/register")}
-            borderRadius="3xl"
+            colorScheme={themeOptions.focusColor}
+            fontWeight={600}
+            borderRadius={themeOptions.borderRadius}
             _focusVisible="none"
+            _hover={{
+              textDecoration: "none",
+              transform: "translateY(-2px)",
+              boxShadow: "lg",
+            }}
+            _active={{
+              transform: "translateY(0)",
+              boxShadow: "md",
+            }}
+            transition="all 0.2s ease-in-out"
+            aria-label="Probar Habituo gratis"
           >
             Probar Habituo gratis
           </Button>
         </VStack>
       </Container>
 
-      <Container as="section" maxW="7xl" py={{ base: 10, lg: 50 }}>
-        <HStack flexDirection={{ base: "column", lg: "row" }} spacing={0}>
+      <Container as="section" maxW="7xl" py={{ base: 10, md: 16, lg: 20 }}>
+        <HStack
+          flexDirection={{ base: "column", lg: "row" }}
+          spacing={{ base: 10, lg: 16 }}
+        >
           <VStack
             w={{ base: "100%", lg: "50%" }}
             alignItems={{ base: "center", lg: "flex-start" }}
-            maxW={{ base: "3xl" }}
-            spacing={{ base: 5, lg: 10 }}
+            maxW={{ base: "xl", lg: "none" }}
+            spacing={{ base: 6, lg: 8 }}
+            textAlign={{ base: "center", lg: "left" }}
           >
-            <Text
+            <Heading
               as="h2"
-              fontSize={{ base: "30px", md: "35px", lg: "40px" }}
+              fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }}
               fontWeight={600}
-              lineHeight={{ base: "30px", md: "35px", lg: "40px" }}
-              textAlign={{ base: "center", lg: "left" }}
+              lineHeight="shorter"
+              color={isLight ? "black" : "white"}
             >
               El mejor tracker de hábitos para alcanzar tus metas
-            </Text>
+            </Heading>
             <Text
-              as="p"
-              fontSize={{ base: "14px", md: "16px", lg: "18px" }}
+              fontSize={{ base: "md", md: "lg", lg: "xl" }}
               fontWeight={400}
-              lineHeight={{ base: "20px", md: "24px", lg: "26px" }}
-              textAlign={{ base: "center", lg: "left" }}
+              lineHeight="tall"
+              color={isLight ? "gray.600" : "gray.300"}
             >
               Convierte tus objetivos en hábitos duraderos. Con{" "}
-              <Text as="span" fontWeight={600}>
+              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
                 Habituo
               </Text>
               , diseña tu rutina ideal, ajusta recordatorios y haz un
@@ -99,47 +205,61 @@ const Home = () => {
               análisis inteligentes.
             </Text>
           </VStack>
-          <VStack w={{ base: "100%", lg: "50%" }} maxW={{ base: "3xl" }}>
-            <Image src={dataAnalysis}></Image>
+          <VStack
+            w={{ base: "100%", lg: "50%" }}
+            maxW={{ base: "2xl", lg: "none" }}
+          >
+            <Image
+              src={dataAnalysis}
+              alt="Análisis de datos de hábitos"
+              objectFit="contain"
+            />
           </VStack>
         </HStack>
       </Container>
 
-      <Container as="section" maxW="7xl" py={{ base: 10, lg: 50 }}>
+      <Container as="section" maxW="7xl" py={{ base: 10, md: 16, lg: 20 }}>
         <HStack
           flexDirection={{ base: "column-reverse", lg: "row" }}
-          spacing={0}
+          spacing={{ base: 10, lg: 16 }}
         >
-          <VStack w={{ base: "100%", lg: "50%" }} maxW={{ base: "3xl" }}>
-            <Image src={customDashboard}></Image>
+          <VStack
+            w={{ base: "100%", lg: "50%" }}
+            maxW={{ base: "2xl", lg: "none" }}
+          >
+            <Image
+              src={customDashboard}
+              alt="Dashboard personalizable"
+              objectFit="contain"
+            />
           </VStack>
           <VStack
             w={{ base: "100%", lg: "50%" }}
             alignItems={{ base: "center", lg: "flex-end" }}
-            maxW={{ base: "3xl" }}
-            spacing={{ base: 5, lg: 10 }}
+            maxW={{ base: "xl", lg: "none" }}
+            spacing={{ base: 6, lg: 8 }}
+            textAlign={{ base: "center", lg: "right" }}
           >
-            <Text
+            <Heading
               as="h2"
-              fontSize={{ base: "30px", md: "35px", lg: "40px" }}
+              fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }}
               fontWeight={600}
-              lineHeight={{ base: "30px", md: "35px", lg: "40px" }}
-              textAlign={{ base: "center", lg: "right" }}
+              lineHeight="shorter"
+              color={isLight ? "black" : "white"}
             >
               Un dashboard a tu estilo
-            </Text>
+            </Heading>
             <Text
-              as="p"
-              fontSize={{ base: "14px", md: "16px", lg: "18px" }}
+              fontSize={{ base: "md", md: "lg", lg: "xl" }}
               fontWeight={400}
-              lineHeight={{ base: "20px", md: "24px", lg: "26px" }}
-              textAlign={{ base: "center", lg: "right" }}
+              lineHeight="tall"
+              color={isLight ? "gray.600" : "gray.300"}
             >
               Tu dashboard es el centro de tu progreso. Personaliza la vista
               para que te resulte intuitiva y eficiente, dándote el control
               total sobre cómo gestionas tus hábitos diarios. Ya sea con un
               estilo minimalista o con un toque de color vibrante,{" "}
-              <Text as="span" fontWeight="600">
+              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
                 Habituo
               </Text>{" "}
               se adapta a ti.
@@ -148,261 +268,259 @@ const Home = () => {
         </HStack>
       </Container>
 
-      <Container
-        as="section"
-        maxW="100%"
-        px={{ base: 5, lg: 10 }}
-        py={{ base: 10, lg: 50 }}
-      >
+      <Container as="section" maxW="full" py={{ base: 10, lg: 20 }}>
         <VStack
           px={{ base: 5, lg: 10 }}
           py={{ base: 10, lg: 20 }}
           spacing={{ base: 10, lg: 20 }}
-          bg="transparent"
-          backgroundColor="#00000010"
-          borderRadius="3xl"
+          bg={isLight ? "gray.50" : "gray.900"}
+          borderRadius={themeOptions.borderRadius}
         >
           <VStack w="100%" maxW="3xl" spacing={4}>
-            <Text
+            <Heading
               as="h2"
-              fontSize={{ base: "30px", md: "35px", lg: "40px" }}
+              fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }}
               fontWeight={600}
-              lineHeight={{ base: "30px", md: "35px", lg: "40px" }}
+              lineHeight="shorter"
               textAlign="center"
+              color={isLight ? "black" : "white"}
             >
               Mantente activo con tus progresos
-            </Text>
+            </Heading>
             <Text
-              as="p"
-              fontSize={{ base: "14px", md: "16px", lg: "18px" }}
+              fontSize={{ base: "md", md: "lg", lg: "xl" }}
               fontWeight={400}
-              lineHeight={{ base: "20px", md: "24px", lg: "26px" }}
+              lineHeight="tall"
               textAlign="center"
+              color={isLight ? "gray.600" : "gray.300"}
             >
               La ciencia ha demostrado que observar cómo avanzas aumenta
               considerablemente tus posibilidades de crear y mantener costumbres
-              positivas.
-              <br />
-              Impulsa tu camino con datos reveladores, celebra cada logro, por
-              pequeño que sea, y mantén viva la motivación en tu búsqueda del
-              éxito.
+              positivas. Impulsa tu camino con datos reveladores, celebra cada
+              logro, por pequeño que sea, y mantén viva la motivación en tu
+              búsqueda del éxito.
             </Text>
           </VStack>
-          <SimpleGrid
-            w={{ base: "100%", lg: "100%", xl: "70%" }}
-            columns={{ base: 1, lg: 2 }}
-            gap={4}
-          >
-            <Box
-              pt={{ base: 14, lg: 20 }}
-              pb={10}
-              gridColumnStart={1}
-              gridColumnEnd={{ base: 3, lg: 2 }}
-              borderRadius="3xl"
-              bg="rgb(255, 255, 255)"
-              display="flex"
-              flexDirection="column"
-              alignItems="center"
-              justifyContent="flex-end"
-              gap={5}
+          <SimpleGrid w="100%" columns={{ base: 1, md: 2 }} spacing={6}>
+            <FeatureCard
+              title="Áreas & Hábitos"
+              description="Crea y modifica a tu antojo las áreas y hábitos que desees"
+              gridColumn={{ base: "span 1", md: "span 2", xl: "span 1" }}
             >
-              <HStack mb={5}>
+              <HStack mb={5} spacing={-10} alignItems="flex-end">
                 <Image
-                  w="200px"
+                  w={{ base: "150px", sm: "200px", lg: "220px" }}
                   src={habitsSection}
-                  borderRadius="25px"
-                  alt="Hábitos"
-                  transform={{
-                    base: "rotate(-10deg) translate3d(40px, -20px, 0)",
-                    sm: "rotate(-10deg) translateX(30px)",
-                    lg: "rotate(-10deg) translateX(50px)",
-                  }}
+                  borderRadius="2xl"
+                  alt="Gestión de hábitos"
+                  transform="rotate(-10deg) translateX(30px) translateY(10px)"
                   boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  zIndex={1}
                 />
                 <Image
-                  w="200px"
+                  w={{ base: "150px", sm: "200px", lg: "220px" }}
                   src={areasSection}
-                  borderRadius="25px"
-                  alt="Áreas"
-                  transform={{
-                    base: "rotate(10deg) translate3d(-140px, 20px, 0)",
-                    sm: "rotate(10deg) translateX(-30px)",
-                    lg: "rotate(10deg) translateX(-50px)",
-                  }}
+                  borderRadius="2xl"
+                  alt="Gestión de áreas"
+                  transform="rotate(10deg) translateX(-30px) translateY(-10px)"
                   boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  zIndex={2}
                 />
               </HStack>
-              <Text
-                as="h3"
-                fontSize={{ base: "22px", sm: "24px", lg: "30px" }}
-                lineHeight={{ base: "22px", sm: "24px", lg: "30px" }}
-                fontWeight={600}
-                color="rgb(0, 0, 0)"
-              >
-                Áreas & Hábitos
-              </Text>
-              <Text
-                maxW="80%"
-                textAlign="center"
-                fontSize={{ base: "16px", sm: "18px", lg: "20px" }}
-                lineHeight={{ base: "16px", sm: "18px", lg: "20px" }}
-                fontWeight={400}
-                color="rgba(0, 0, 0, .6)"
-              >
-                Crea y modifica a tu antojo las áreas y hábitos que desees
-              </Text>
-            </Box>
-            <Box
-              pt={13}
-              pb={10}
-              gridColumnStart={{ base: 1, md: 2 }}
-              gridColumnEnd={3}
-              borderRadius="3xl"
-              bg="rgb(255, 255, 255)"
-              display="flex"
-              flexDirection="column"
-              alignItems="center"
-              justifyContent="flex-end"
-              gap={5}
+            </FeatureCard>
+            <FeatureCard
+              title="Estadísticas"
+              description="Visualiza tu progreso con un calendario y datos mostrados en gráficos"
+              gridColumn={{ base: "span 1", md: "span 2", xl: "span 1" }}
             >
               <HStack
                 py={7}
                 alignItems="center"
                 justifyContent="center"
                 overflowX="hidden"
+                maxW="100%"
               >
                 <Image
-                  h="250px"
+                  h={{ base: "180px", sm: "220px", lg: "250px" }}
                   src={barchartSection}
-                  borderRadius="3xl"
-                  alt="Gráfico de barras"
+                  borderRadius="2xl"
+                  alt="Gráfico de barras de progreso"
                   boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
                 />
                 <Image
-                  h="250px"
+                  h={{ base: "180px", sm: "220px", lg: "250px" }}
                   src={statsSection}
-                  borderRadius="3xl"
-                  alt="Estadísticas"
+                  borderRadius="2xl"
+                  alt="Panel de estadísticas"
                   boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  display={{ base: "none", sm: "block" }}
                 />
                 <Image
-                  h="250px"
+                  h={{ base: "180px", sm: "220px", lg: "250px" }}
                   src={calendarSection}
-                  borderRadius="3xl"
-                  alt="Calendario"
+                  borderRadius="2xl"
+                  alt="Calendario de hábitos"
                   boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  display={{ base: "none", md: "block" }}
                 />
               </HStack>
-              <Text
-                as="h3"
-                fontSize={{ base: "22px", sm: "24px", lg: "30px" }}
-                lineHeight={{ base: "22px", sm: "24px", lg: "30px" }}
-                fontWeight={600}
-                color="rgb(0, 0, 0)"
-              >
-                Estadísticas
-              </Text>
-              <Text
-                maxW="80%"
-                textAlign="center"
-                fontSize={{ base: "16px", sm: "18px", lg: "20px" }}
-                lineHeight={{ base: "16px", sm: "18px", lg: "20px" }}
-                fontWeight={400}
-                color="rgba(0, 0, 0, .6)"
-              >
-                Visualiza tu progreso con un calendario y datos mostrados en
-                gráficos
-              </Text>
-            </Box>
-            <HStack
-              px={10}
-              pt={20}
-              pb={10}
-              gridColumnStart={1}
-              gridColumnEnd={3}
-              borderRadius="3xl"
-              bg="rgb(255, 255, 255)"
-              spacing={20}
-              position="relative"
-              overflow="hidden"
+            </FeatureCard>
+            <FeatureCard
+              title="Tracker de hábitos avanzado"
+              description="Tendrás diferentes vistas para tener una mejor visión acerca de tu actividad"
+              gridColumn={{ base: "span 1", md: "span 2", xl: "span 2" }}
             >
-              <VStack spacing={180} align="start">
-                <HStack w="100%" alignItems="start" justifyContent={{base: "center", md: "start"}}>
+              <VStack
+                spacing={8}
+                alignItems="center"
+                justifyContent="center"
+                position="relative"
+                w="full"
+                py={5}
+              >
+                <HStack spacing={-10} justifyContent="center" zIndex={2}>
                   <Image
-                    h="200px"
+                    h={{ base: "150px", sm: "180px", lg: "200px" }}
                     src={viewsSection}
                     alt="Vistas personalizadas"
-                    borderRadius="25px"
-                    transform={{
-                      base: "rotate(-10deg) translate3d(0px, -30px, 0)",
-                      sm: "rotate(-10deg)",
-                      lg: "rotate(-10deg) translateX(40px)",
-                    }}
+                    borderRadius="2xl"
+                    transform="rotate(-10deg) translateX(20px) translateY(10px)"
                     boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                    zIndex={1}
                   />
                   <Image
-                    h="200px"
+                    h={{ base: "150px", sm: "180px", lg: "200px" }}
                     src={chronoSection}
-                    alt="Temporizador"
-                    borderRadius="25px"
-                    transform="rotate(10deg) translate(-40px, 20px)"
+                    alt="Temporizador de hábitos"
+                    borderRadius="2xl"
+                    transform="rotate(10deg) translateX(-20px) translateY(-10px)"
                     boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                    zIndex={2}
                   />
                 </HStack>
-                <Box
-                  w={{base: "100%", md: "80%"}}
-                  display="flex"
-                  flexDirection="column"
-                  alignItems="flex-start"
-                  justifyContent="flex-start"
-                  gap={5}
-                  textAlign={{base: "center", md: "left"}}
-                >
-                  <Text
-                    as="h3"
-                    fontSize={{base: "22px", sm: "24px", lg: "30px"}}
-                lineHeight={{base: "22px", sm: "24px", lg: "30px"}}
-                    fontWeight={600}
-                    color="rgb(0, 0, 0)"
-                  >
-                    Tracker de hábitos avanzado
-                  </Text>
-                  <Text
-                    fontSize={{base: "16px", sm: "18px", lg: "20px"}}
-                    lineHeight={{base: "16px", sm: "18px", lg: "20px"}}
-                    fontWeight={400}
-                    color="rgba(0, 0, 0, .6)"
-                  >
-                    Tendrás diferentes vistas para tener una mejor visión acerca
-                    de tu actividad
-                  </Text>
-                </Box>
+                <Image
+                  display={{ base: "none", md: "block" }}
+                  h={{ base: "200px", lg: "250px" }}
+                  src={allAreasSection}
+                  alt="Todas las áreas"
+                  position="absolute"
+                  bottom={0}
+                  right={{ md: "5%", lg: "5%" }}
+                  borderRadius="2xl"
+                  boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  zIndex={0}
+                  transform="rotate(5deg)"
+                />
+                <Image
+                  display={{ base: "none", md: "block" }}
+                  h={{ base: "200px", lg: "250px" }}
+                  src={allHabitsSection}
+                  alt="Todos los hábitos"
+                  position="absolute"
+                  top={0}
+                  left={{ md: "5%", lg: "5%" }}
+                  borderRadius="2xl"
+                  boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
+                  zIndex={0}
+                  transform="rotate(-5deg)"
+                />
               </VStack>
-              <Image
-                display={{ base: "none", md: "block" }}
-                bottom={40}
-                right={-20}
-                h="300px"
-                src={allAreasSection}
-                alt="Todas las areas"
-                position="absolute"
-                borderRadius="25px"
-                boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
-              />
-              <Image
-                display={{ base: "none", md: "block" }}
-                bottom={-10}
-                right={-10}
-                h="300px"
-                src={allHabitsSection}
-                alt="Todos los hábitos"
-                position="absolute"
-                borderRadius="25px"
-                boxShadow="rgba(149, 157, 165, 0.2) 0px 8px 24px"
-              />
-            </HStack>
+            </FeatureCard>
           </SimpleGrid>
         </VStack>
+      </Container>
+
+      <Container as="section" maxW="7xl" py={{ base: 10, md: 16, lg: 20 }}>
+        <HStack
+          flexDirection={{ base: "column", lg: "row" }}
+          spacing={{ base: 10, lg: 16 }}
+          alignItems={{ base: "center", lg: "flex-start" }}
+        >
+          <VStack
+            w={{ base: "100%", lg: "50%" }}
+            alignItems={{ base: "center", lg: "flex-start" }}
+            maxW={{ base: "xl", lg: "none" }}
+            spacing={{ base: 6, lg: 8 }}
+            textAlign={{ base: "center", lg: "left" }}
+          >
+            <Heading
+              as="h2"
+              fontSize={{ base: "3xl", md: "4xl", lg: "5xl" }}
+              fontWeight={600}
+              lineHeight="shorter"
+              color={isLight ? "black" : "white"}
+            >
+              Preguntas frecuentes
+            </Heading>
+            <Text
+              fontSize={{ base: "md", md: "lg", lg: "xl" }}
+              fontWeight={400}
+              lineHeight="tall"
+              color={isLight ? "gray.600" : "gray.300"}
+            >
+              ¿Tienes dudas sobre cómo funciona{" "}
+              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
+                Habituo
+              </Text>
+              ? Aquí resolvemos las preguntas más comunes para que empieces a
+              construir tus hábitos sin demoras.
+            </Text>
+          </VStack>
+          <VStack
+            w={{ base: "100%", lg: "50%" }}
+            maxW={{ base: "full", lg: "none" }}
+            spacing={4}
+            mt={{ base: 10, lg: 0 }}
+          >
+            <Accordion allowToggle width="100%" px={0}>
+              {faqItems.map((item, index) => (
+                <AccordionItem
+                  key={index}
+                  bg={isLight ? "white" : "black"}
+                  borderColor={isLight ? "gray.200" : "gray.600"}
+                  borderWidth="1px"
+                  borderRadius={themeOptions.borderRadius}
+                  mb={3}
+                  boxShadow="sm"
+                  _hover={{ boxShadow: "md" }}
+                >
+                  <h2>
+                    <AccordionButton
+                      _expanded={{
+                        bg: "black",
+                        color: "white",
+                      }}
+                      py={4}
+                      px={5}
+                      borderRadius={themeOptions.borderRadius}
+                      _hover={{ bg: "gray.300" }}
+                    >
+                      <Box
+                        as="span"
+                        flex="1"
+                        textAlign="left"
+                        fontSize={{ base: "md", md: "lg" }}
+                        fontWeight={600}
+                      >
+                        {item.question}
+                      </Box>
+                      <AccordionIcon />
+                    </AccordionButton>
+                  </h2>
+                  <AccordionPanel
+                    pb={4}
+                    px={5}
+                    fontSize={{ base: "sm", md: "md" }}
+                    color={isLight ? "gray.700" : "gray.300"}
+                    lineHeight="tall"
+                  >
+                    {item.answer}
+                  </AccordionPanel>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </VStack>
+        </HStack>
       </Container>
 
       <Footer />

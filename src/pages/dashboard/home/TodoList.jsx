@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useTheme } from "../../../context/ThemeContext";
+import { useAuthUser } from "../../../context/AuthUserContext";
 import {
   Box,
   Flex,
@@ -14,6 +16,9 @@ import {
   HStack,
   Spinner,
   useToast,
+  Center,
+  Alert,
+  AlertIcon,
 } from "@chakra-ui/react";
 import {
   getTasks,
@@ -21,110 +26,198 @@ import {
   updateTask,
   deleteTask,
 } from "../../../hooks/database";
-import { useTheme } from "../../../context/ThemeContext";
 import * as LuIcons from "react-icons/lu";
-import { useAuth } from "../../../context/AuthContext";
 
 const TodoList = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuthUser();
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const toast = useToast();
   const [todos, setTodos] = useState([]);
   const [newTask, setNewTask] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [tasksError, setTasksError] = useState(null);
 
-  const handleAddTask = () => {
-    if (newTask.trim()) {
-      addTask({ text: newTask.trim(), completed: false }).catch((err) => {
-        toast({
-          title: <Text fontWeight="600">Error al añadir la tarea</Text>,
-          description: err,
-          status: "error",
-          position: "bottom",
-        });
+  const showToastError = useCallback(
+    (title, error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      toast({
+        title: <Text fontWeight={600}>{title}</Text>,
+        description: errorMessage || "Ha ocurrido un error inesperado.",
+        status: "error",
+        position: "bottom",
       });
+    },
+    [toast]
+  );
+
+  const showToastSuccess = useCallback(
+    (title, description = "") => {
+      toast({
+        title: <Text fontWeight={600}>{title}</Text>,
+        description: description,
+        status: "success",
+        position: "bottom",
+      });
+    },
+    [toast]
+  );
+
+  const handleAddTask = async () => {
+    if (!user?.uid) {
+      showToastError("Error al añadir una tarea", new Error("Usuario no autenticado."));
+      return;
+    }
+
+    if (newTask.trim() === "") {
+      showToastError("Entrada inválida", new Error("La entrada está vacía."));
+      return;
+    }
+
+    try {
+      setLoadingTasks(true);
+      await addTask({ text: newTask.trim(), completed: false }, user.uid);
       setNewTask("");
+      showToastSuccess(
+        "Tarea añadida",
+        "La tarea se ha añadido correctamente."
+      );
+    } catch (err) {
+      showToastError("Error al añadir la tarea", err);
+    } finally {
+      setLoadingTasks(false);
     }
   };
 
-  const handleToggleComplete = (id, isCompleted) => {
-    updateTask(id, { completed: !isCompleted }).catch((err) => {
-      toast({
-        title: <Text fontWeight="600">Error al actualizar la tarea</Text>,
-        description: err,
-        status: "error",
-        position: "bottom",
-      });
-    });
+  const handleToggleComplete = async (id, isCompleted) => {
+    if (!user?.uid) {
+      showToastError(
+        "Error de autenticación",
+        new Error("Debes iniciar sesión para actualizar tareas.")
+      );
+      return;
+    }
+    try {
+      await updateTask(id, { completed: !isCompleted }, user.uid);
+      showToastSuccess(
+        "Tarea actualizada",
+        "El estado de la tarea ha cambiado."
+      );
+    } catch (err) {
+      showToastError("Error al actualizar la tarea", err);
+    }
   };
 
-  const handleDeleteTask = (id) => {
-    deleteTask(id).catch((err) => {
-      toast({
-        title: <Text fontWeight="600">Error al eliminar la tarea</Text>,
-        description: err,
-        status: "error",
-        position: "bottom",
-      });
-    });
+  const handleDeleteTask = async (id) => {
+    if (!user?.uid) {
+      showToastError(
+        "Error de autenticación",
+        new Error("Debes iniciar sesión para eliminar tareas.")
+      );
+      return;
+    }
+    try {
+      await deleteTask(id, user.uid);
+      showToastSuccess(
+        "Tarea eliminada",
+        "La tarea se ha eliminado correctamente."
+      );
+    } catch (err) {
+      showToastError("Error al eliminar la tarea", err);
+    }
   };
 
   useEffect(() => {
-    setLoading(true);
+    if (authLoading) {
+      setLoadingTasks(true);
+      return;
+    }
 
     const userId = user?.uid;
 
     if (!userId) {
-      setLoading(false);
+      setTodos([]);
+      setLoadingTasks(false);
+      setTasksError("Necesitas iniciar sesión para ver tus tareas.");
       return;
     }
 
+    setLoadingTasks(true);
+    setTasksError(null);
+
     const unsubscribe = getTasks(
-      (tasks) => {
-        setTodos(tasks);
-        setLoading(false);
+      userId,
+      (tasksData) => {
+        setTodos(tasksData);
+        setLoadingTasks(false);
+        setTasksError(null);
       },
-      (err) => {
-        toast({
-          title: <Text fontWeight="600">Error al cargar las tareas</Text>,
-          description: err,
-          status: "error",
-          position: "bottom",
-        });
-      },
-      userId
+      (error) => {
+        setTasksError("No se pudieron cargar las tareas. Inténtalo de nuevo.");
+        setLoadingTasks(false);
+        showToastError("Error de conexión", new Error("No se pudieron cargar las tareas. Por favor, verifica tu conexión a internet."));
+      }
     );
 
-    return () => unsubscribe();
-  }, [user]);
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [user, authLoading, showToastError]);
 
-  if (loading) {
+  if (loadingTasks) {
     return (
-      <Box
+      <Center
         p={4}
+        bg={colorMode === "light" ? "white" : "black"}
         borderRadius={themeOptions.borderRadius}
-        bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minH="150px"
+        minH="200px"
+        border="2px solid var(--chakra-colors-chakra-border-color)"
+        flexDirection="column"
+        gap={2}
+      >
+        <Spinner
+          size="lg"
+          thickness="4px"
+          emptyColor="gray.200"
+          color={`${themeOptions.focusColor}.500`}
+        />
+        <Text size="lg">Cargando...</Text>
+      </Center>
+    );
+  }
+
+  if (tasksError) {
+    return (
+      <Center
+        p={4}
+        bg={colorMode === "light" ? "white" : "black"}
+        borderRadius={themeOptions.borderRadius}
+        minH="200px"
         border="2px solid var(--chakra-colors-chakra-border-color)"
       >
-        <Spinner size="lg" color={themeOptions.focusColor} />
-      </Box>
+        <Text size="lg" fontWeight={600} color="red.400">
+          {tasksError}
+        </Text>
+      </Center>
     );
   }
 
   return (
     <Box
       p={4}
-      pt={3}
       borderRadius={themeOptions.borderRadius}
-      bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
+      bg={colorMode === "light" ? "white" : "black"}
       border="2px solid var(--chakra-colors-chakra-border-color)"
     >
-      <HStack pb={2} alignItems="center" justifyContent="flex-start" spacing={2}>
+      <HStack
+        pb={2}
+        alignItems="center"
+        justifyContent="flex-start"
+        spacing={2}
+      >
         <LuIcons.LuClipboardCheck size="25px" />
         <Text fontSize="xl" fontWeight={600}>
           Lista de tareas
@@ -200,10 +293,19 @@ const TodoList = () => {
           </Flex>
         ))}
         {todos.length === 0 && (
-          <Box py={10} w="100%" display="flex" alignItems="center" justifyContent="center">
-            <Text p={2} color={colorMode === "light" ? "#00000060" : "#FFFFFF60"}>
-            Sin tareas que mostrar
-          </Text>
+          <Box
+            py={10}
+            w="100%"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text
+              p={2}
+              color={colorMode === "light" ? "#00000060" : "#FFFFFF60"}
+            >
+              Sin tareas que mostrar
+            </Text>
           </Box>
         )}
       </VStack>

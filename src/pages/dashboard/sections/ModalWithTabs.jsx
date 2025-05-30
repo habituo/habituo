@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types";
+import { useAuthUser } from "../../../context/AuthUserContext";
 import {
   Text,
   Avatar,
@@ -31,130 +31,143 @@ import {
   SimpleGrid,
   Switch,
   Link,
+  Spinner,
+  Center,
+  ModalHeader,
+  useDisclosure,
 } from "@chakra-ui/react";
 import * as LuIcons from "react-icons/lu";
 import DeleteAccountButton from "./DeleteAccount";
-import { updateUserData, logoutUser } from "../../../hooks/database";
+import { updateUserData } from "../../../hooks/database";
 import { TbBrandPatreon } from "react-icons/tb";
 import { FaGoogle } from "react-icons/fa";
 import { useTheme } from "../../../context/ThemeContext";
-import { useAuth } from "../../../context/AuthContext";
-import { VerifyEmailButton } from "../../../routes/index";
+import { ConfirmationModal } from "../../../routes";
 
-const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
-  const [loading, setLoading] = useState(true);
+const ModalWithTabs = ({ isOpen, onClose }) => {
   const { colorMode, toggleColorMode } = useColorMode();
   const { themeOptions } = useTheme();
-  const { user } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    logout,
+    sendEmailVerificationLink,
+  } = useAuthUser();
+  const toast = useToast();
+  const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [selectedValue, setSelectedValue] = useState("monday");
   const [selectedLang, setSelectedLang] = useState("esp");
-  const [name, setName] = useState(userData?.name || "");
+  const [name, setName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
   const [isNameChanged, setIsNameChanged] = useState(false);
-  const [currentNameInDB, setCurrentNameInDB] = useState(userData?.name || "");
-  const [birthDay, setBirthDay] = useState(userData?.birthday_date || "");
+  const [birthDay, setBirthDay] = useState("");
   const [isBirthDayChanged, setIsBirthDayChanged] = useState(false);
-  const [currentBirthDayInDB, setCurrentBirthDayInDB] = useState(
-    userData?.birthday_date || ""
-  );
-
-  const toast = useToast();
+  const [currentNameInDB, setCurrentNameInDB] = useState("");
+  const [currentBirthDayInDB, setCurrentBirthDayInDB] = useState("");
+  const {
+    isOpen: isLogoutConfirmationOpen,
+    onOpen: onOpenLogoutConfirmation,
+    onClose: onCloseLogoutConfirmation,
+  } = useDisclosure();
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      setLoading(true);
-      if (user?.uid) {
-        setName(userData?.name || "");
-        setCurrentNameInDB(userData?.name || "");
-        setBirthDay(userData?.birthday_date || "");
-        setCurrentBirthDayInDB(userData?.birthday_date || "");
-      }
-      setLoading(false);
-    };
-    fetchUserData();
-  }, [user]);
+    if (user && !authLoading) {
+      const initialName =
+        user?.name || user?.displayName || user?.email?.split("@")[0] || "";
+      setName(initialName);
+      setCurrentNameInDB(initialName);
 
-  /**
-   * Handles the tab change event when a user clicks on a tab in a UI component.
-   * @function handleTabChange
-   * @param {number} index - The index of the tab that was clicked. This index typically corresponds to the position of the tab in the tab list (e.g., 0 for the first tab, 1 for the second, etc.).
-   * @returns {void} This function updates the component's state.
-   */
+      const initialBirthday = user?.birthday_date || "";
+      setBirthDay(initialBirthday);
+      setCurrentBirthDayInDB(initialBirthday);
+
+      setSelectedValue(user?.preferences?.startOfWeek || "monday");
+      setSelectedLang(user?.preferences?.language || "esp");
+    }
+  }, [user, authLoading]);
+
+  const showToastError = (title, error) => {
+    toast({
+      title: <Text fontWeight={600}>{title}</Text>,
+      description: error.message || "Ha ocurrido un error inesperado.",
+      status: "error",
+      position: "bottom",
+    });
+  };
+
   const handleTabChange = (index) => {
     setActiveTab(index);
   };
 
-  /**
-   * Handles the change event when a user selects a new first day of the week from a select input.
-   * @function handleDayChange
-   * @param {string} value - The value of the selected first day of the week (e.g., 'monday', 'sunday'). This value should correspond to one of the keys in the `valueToLabel` object or a similar data structure.
-   * @returns {void} This function updates the component's state.
-   */
+  const handleSavePreferences = async (prefKey, value) => {
+    if (!user?.uid) {
+      showToastError(
+        "Error al guardar preferencias",
+        new Error("Usuario no autenticado.")
+      );
+      return;
+    }
+    try {
+      const updatedPreferences = {
+        ...user.preferences,
+        [prefKey]: value,
+      };
+
+      await updateUserData(user.uid, { preferences: updatedPreferences });
+      toast({
+        title: <Text fontWeight={600}>Preferencias actualizadas</Text>,
+        description: `Tu preferencia ha sido guardada.`,
+        status: "success",
+        position: "bottom",
+      });
+    } catch (error) {
+      showToastError("Error al guardar preferencias", error);
+    }
+  };
+
   const handleDayChange = (value) => {
     setSelectedValue(value);
+    handleSavePreferences("startOfWeek", value);
   };
 
-  /**
-   * Handles the change event when a user selects a new language from a select input.
-   * @function handleLangChange
-   * @param {string} value - The code of the selected language (e.g., 'esp' for Spanish, 'eng' for English).
-   * @returns {void} This function updates the component's state.
-   */
   const handleLangChange = (value) => {
     setSelectedLang(value);
+    handleSavePreferences("language", value);
   };
 
-  /**
-   * An object mapping the values used for the first day of the week in a select input to their human-readable labels in Spanish.
-   * @constant {object} valueToLabel
-   * @property {string} monday - The label for Monday ('Lunes').
-   * @property {string} sunday - The label for Sunday ('Domingo').
-   */
   const valueToLabel = {
     monday: "Lunes",
     sunday: "Domingo",
   };
 
-  /**
-   * An object mapping language codes to their human-readable labels in Spanish.
-   * @constant {object} langToLabel
-   * @property {string} esp - The label for Spanish ('Español').
-   * @property {string} eng - The label for English ('Inglés').
-   */
   const langToLabel = {
     esp: "Español",
     eng: "Inglés",
   };
 
-  /**
-   * Handles the change event of the name input field.
-   * @function handleChangeName
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event object from the input field.
-   * @returns {void} This function updates the component's state variables (`name`, `isNameValid`, `isNameChanged`).
-   */
   const handleChangeName = (e) => {
     const newName = e.target.value;
     setName(newName);
 
     const isValid = /^[a-zA-Z0-9\s]*$/.test(newName);
-
     setIsNameValid(isValid);
     setIsNameChanged(isValid && newName !== currentNameInDB);
   };
 
-  /**
-   * Handles the process of saving the user's name to the database.
-   * @async
-   * @function handleSaveName
-   * @returns {void} This function does not directly return a value but triggers the saving process and displays notifications based on the outcome and input validity.
-   */
   const handleSaveName = async () => {
-    if (user?.uid && isNameChanged && isNameValid) {
+    if (!user?.uid) {
+      showToastError(
+        "Error al actualizar el nombre",
+        new Error("Usuario no autenticado.")
+      );
+      return;
+    }
+    if (isNameChanged && isNameValid) {
       try {
         await updateUserData(user.uid, { name: name });
         toast({
-          title: <Text fontWeight="600">Nombre actualizado</Text>,
+          title: <Text fontWeight={600}>Nombre actualizado</Text>,
           description: "Tu nombre ha sido guardado.",
           status: "success",
           position: "bottom",
@@ -162,16 +175,11 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
         setCurrentNameInDB(name);
         setIsNameChanged(false);
       } catch (error) {
-        toast({
-          title: <Text fontWeight="600">Error al actualizar el nombre</Text>,
-          description: error.message,
-          status: "error",
-          position: "bottom",
-        });
+        showToastError("Error al actualizar el nombre", error);
       }
     } else if (!isNameValid) {
       toast({
-        title: "Nombre inválido",
+        title: <Text fontWeight={600}>Nombre inválido</Text>,
         description: "Solo se permiten letras y números.",
         status: "warning",
         position: "bottom",
@@ -179,72 +187,87 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
     }
   };
 
-  /**
-   * Handles the change event of the birthday input field.
-   * @function handleBirthDayChange
-   * @param {React.ChangeEvent<HTMLInputElement>} e - The change event object from the input field.
-   * The `e.target.value` contains the newly selected birthday date string (typically in 'YYYY-MM-DD' format).
-   * @returns {void} This function updates the component's state variables.
-   */
   const handleBirthDayChange = (e) => {
     const newBirthDay = e.target.value;
     setBirthDay(newBirthDay);
-    setIsBirthDayChanged(newBirthDay && newBirthDay !== currentBirthDayInDB);
+    setIsBirthDayChanged(newBirthDay !== currentBirthDayInDB);
   };
 
-  /**
-   * Handles the process of saving the user's birthday to the database.
-   * @async
-   * @function handleSaveBirthDay
-   * @returns {void} This function does not directly return a value but triggers the saving process and displays notifications based on the outcome.
-   */
   const handleSaveBirthDay = async () => {
-    if (user?.uid && isBirthDayChanged) {
+    if (!user?.uid) {
+      showToastError(
+        "Error al actualizar la fecha de nacimiento",
+        new Error("Usuario no autenticado.")
+      );
+      return;
+    }
+    if (isBirthDayChanged) {
       try {
         await updateUserData(user.uid, { birthday_date: birthDay });
         toast({
-          title: <Text fontWeight="600">Fecha de nacimiento actualizada</Text>,
+          title: <Text fontWeight={600}>Fecha de nacimiento actualizada</Text>,
           description: "Tu fecha de nacimiento ha sido guardada.",
           status: "success",
           position: "bottom",
         });
+        setCurrentBirthDayInDB(birthDay);
         setIsBirthDayChanged(false);
       } catch (error) {
-        toast({
-          title: (
-            <Text fontWeight="600">
-              Error al actualizar la fecha de nacimiento
-            </Text>
-          ),
-          description: error.message,
-          status: "error",
-          position: "bottom",
-        });
+        showToastError("Error al actualizar la fecha de nacimiento", error);
       }
     }
   };
 
-  /**
-   * Handles the user logout process.
-   * @async
-   * @function handleLogout
-   * @returns {void} This function does not directly return a value but triggers the logout process.
-   */
   const handleLogout = async () => {
-    logoutUser(toast);
+    try {
+      await logout();
+      toast({
+        title: <Text fontWeight={600}>Sesión cerrada</Text>,
+        description: "Has cerrado sesión correctamente.",
+        status: "success",
+        position: "bottom",
+      });
+      onClose();
+    } catch (error) {
+      toast({
+        title: <Text fontWeight={600}>Error al cerrar sesión</Text>,
+        description: error.message || "No se pudo cerrar sesión.",
+        status: "error",
+        position: "bottom",
+      });
+    }
   };
 
-  /**
-   * A dynamic tab button component that renders an icon and text.
-   * @param {object} props - The component's props.
-   * @param {string} props.iconName - The name of the Lucide icon to render (e.g., 'LuHome').
-   * @param {string} props.buttonText - The text to display on the button.
-   * @param {function} props.onClick - The function to call when the button is clicked.
-   * @param {boolean} props.isActive - A boolean indicating whether the tab is currently active.
-   * @param {object} props.themeOptions - An object containing theme-related options, such as `borderRadius` and `focusColor`.
-   * @param {number} props.tabIndex - The index of the tab, which will be passed to the `onClick` function.
-   * @returns {JSX.Element} The dynamic tab button component.
-   */
+  const handleConfirmLogout = () => {
+    handleLogout();
+    onCloseLogoutConfirmation();
+  };
+
+  const handleSendVerificationEmail = async () => {
+    setIsSending(true);
+
+    const success = await sendEmailVerificationLink();
+
+    if (success) {
+      toast({
+        title: <Text fontWeight={600}>Correo de verificación enviado</Text>,
+        description:
+          "Se ha enviado un correo electrónico de verificación a tu dirección. Por favor, revisa tu bandeja de entrada (y spam).",
+        status: "success",
+        position: "bottom",
+      });
+    } else {
+      toast({
+        title: <Text fontWeight={600}>Error al enviar el correo</Text>,
+        description:
+          "No se pudo enviar el correo de verificación. Por favor, inténtalo de nuevo más tarde.",
+        status: "error",
+        position: "bottom",
+      });
+    }
+    setIsSending(false);
+  };
+
   const DynamicTabButton = ({
     iconName,
     buttonText,
@@ -311,16 +334,6 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
     );
   };
 
-  /**
-   * A dynamic web button component that renders an icon, name, and description, linking to an external website.
-   * @param {object} props - The component's props.
-   * @param {string} props.iconName - The name of the Lucide icon to render (e.g., 'LuGlobe').
-   * @param {string} props.webName - The name of the website or link.
-   * @param {string} props.webDesc - A short description of the website or link.
-   * @param {string} props.webLink - The URL to navigate to when the button is clicked.
-   * @param {object} props.themeOptions - An object containing theme-related options, such as `borderRadius`.
-   * @returns {JSX.Element} The dynamic web button component (a Chakra UI `Link`).
-   */
   const DynamicWebButton = ({
     iconName,
     webName,
@@ -349,7 +362,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
         borderRadius={themeOptions.borderRadius}
         href={webLink}
         target="_blank"
-        bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
+        bg={colorMode === "light" ? "white" : "black"}
         _hover={{ textDecoration: "none" }}
       >
         <Box
@@ -358,8 +371,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
           right={-2}
           w={6}
           h={6}
-          bg={colorMode === "light" ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)"}
-          color={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
+          bg={colorMode === "light" ? "black" : "white"}
+          color={colorMode === "light" ? "white" : "black"}
           borderRadius="50%"
           display="flex"
           alignItems="center"
@@ -383,65 +396,52 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
     );
   };
 
-  /**
-   * Determines the username to display in the user interface.
-   * It prioritizes different properties to fetch the username:
-   * 1. `userInfo.displayName` (if available, typically from the authentication provider).
-   * 2. `userData.name` (if `displayName` is not available, potentially a user-set name from the database).
-   * 3. The part of the `userInfo.email` before the "@" symbol (as a fallback if neither `displayName` nor `userData.name` is present).
-   * @let userName
-   * @type {string}
-   * @default ""
-   */
-  let userName = "";
-  if (userData?.name) {
-    userName = userData.name;
-  } else if (userData?.email) {
-    userName = userData.email.split("@")[0];
+  const currentUserName =
+    user?.name || user?.displayName || user?.email?.split("@")[0] || "Usuario";
+  const currentUserEmail = user?.email || "N/A";
+  const currentUserPhotoURL = user?.photoURL
+    ? `//wsrv.nl/?url=${user.photoURL}`
+    : undefined;
+  const currentAccountType = user?.type_account || "basic";
+
+  let typeAccountColor = "gray";
+  if (currentAccountType === "pro") {
+    typeAccountColor = "blue";
+  } else if (currentAccountType === "insider") {
+    typeAccountColor = "yellow";
   }
 
-  /**
-   * Determines the color associated with the user's account type.
-   * It checks the `userData.type_account` property and assigns a specific color.
-   * @let typeAccountColor
-   * @type {string}
-   * @default ""
-   */
-  let typeAccountColor = "";
-  if (userData && userData.type_account) {
-    if (userData.type_account === "basic") {
-      typeAccountColor = "gray";
-    } else if (userData.type_account === "pro") {
-      typeAccountColor = "blue";
-    } else if (userData.type_account === "insider") {
-      typeAccountColor = "yellow";
-    }
+  const formattedRegistrationDate = user?.createdAt
+    ? `${user?.createdAt
+        .toDate()
+        .toLocaleDateString("es-ES", { day: "2-digit" })} de ${user?.createdAt
+        .toDate()
+        .toLocaleDateString("es-ES", { month: "long" })
+        .replace(/^\w/, (c) => c.toUpperCase())} de ${user?.createdAt
+        .toDate()
+        .getFullYear()}`
+    : "Desconocida";
+
+  if (authLoading || !user) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent
+          maxW="500px"
+          borderRadius={themeOptions.borderRadius}
+          bg={colorMode === "light" ? "white" : "gray.800"}
+        >
+          <ModalHeader>Cargando perfil...</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Center py={10}>
+              <Spinner size="xl" color={themeOptions.focusColor} />
+            </Center>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    );
   }
-
-  const firebaseTimestamp = userData.registeredAt;
-  const registrationDate = firebaseTimestamp.toDate();
-
-  const day = registrationDate.getDate();
-  const monthIndex = registrationDate.getMonth();
-  const year = registrationDate.getFullYear();
-
-  const monthNames = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
-  const monthName = monthNames[monthIndex];
-
-  const formattedDate = `${day} de ${monthName} de ${year}`;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl" isCentered>
@@ -449,7 +449,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
       <ModalContent
         h={630}
         borderRadius={themeOptions.borderRadius}
-        bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+        bg={colorMode === "light" ? "gray.100" : "gray.900"}
       >
         <ModalCloseButton
           position="absolute"
@@ -462,14 +462,14 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
             <GridItem
               p={2}
               borderRadius={themeOptions.borderRadius}
-              bg={colorMode === "light" ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)"}
+              bg={colorMode === "light" ? "white" : "black"}
             >
               <VStack mb={4} align="stretch" spacing={1}>
                 <Text
                   fontSize="xs"
                   fontWeight={600}
                   textTransform="uppercase"
-                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                  color={colorMode === "light" ? "gray.400" : "gray.600"}
                 >
                   Ajustes de la cuenta
                 </Text>
@@ -489,7 +489,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                   fontSize="xs"
                   fontWeight={600}
                   textTransform="uppercase"
-                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                  color={colorMode === "light" ? "gray.400" : "gray.600"}
                 >
                   Configuración
                 </Text>
@@ -509,7 +509,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                   fontSize="xs"
                   fontWeight={600}
                   textTransform="uppercase"
-                  color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                  color={colorMode === "light" ? "gray.400" : "gray.600"}
                 >
                   Soporte
                 </Text>
@@ -561,11 +561,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
               px={4}
               py={2}
               borderRadius={themeOptions.borderRadius}
-              bg={
-                colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"
-              }
+              bg={colorMode === "light" ? "gray.100" : "gray.900"}
             >
-              {/* Tab 01 - Mi perfil */}
               {activeTab === 0 && (
                 <VStack h="100%" align="stretch" spacing={4}>
                   <VStack align="stretch" spacing={2}>
@@ -574,8 +571,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                     </Text>
                     <HStack spacing={4}>
                       <Avatar
-                        src={`//wsrv.nl/?url=${user.photoURL}`}
-                        name={userName}
+                        src={currentUserPhotoURL}
+                        name={currentUserName}
                         size="xl"
                       >
                         <Badge
@@ -587,7 +584,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                           fontWeight={600}
                           borderRadius={themeOptions.borderRadius}
                         >
-                          {userData.type_account}
+                          {currentAccountType.charAt(0).toUpperCase() +
+                            currentAccountType.slice(1)}
                         </Badge>
                       </Avatar>
                       <VStack align="flex-start" spacing={0}>
@@ -596,7 +594,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                           fontWeight={600}
                           textTransform="uppercase"
                           color={
-                            colorMode === "light" ? "#00000050" : "#FFFFFF50"
+                            colorMode === "light" ? "gray.400" : "gray.600"
                           }
                         >
                           Nombre de usuario
@@ -609,11 +607,15 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             borderRadius={themeOptions.borderRadius}
                             colorScheme={themeOptions.focusColor}
                             _focusVisible="none"
+                            isInvalid={!isNameValid}
+                            readOnly={!user?.uid}
                           />
                           <IconButton
                             colorScheme={themeOptions.focusColor}
                             onClick={handleSaveName}
-                            isDisabled={!isNameChanged}
+                            isDisabled={
+                              !isNameChanged || !isNameValid || !user?.uid
+                            }
                           >
                             <LuIcons.LuCheck />
                           </IconButton>
@@ -625,7 +627,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                           fontWeight={600}
                           textTransform="uppercase"
                           color={
-                            colorMode === "light" ? "#00000050" : "#FFFFFF50"
+                            colorMode === "light" ? "gray.400" : "gray.600"
                           }
                         >
                           Fecha de nacimiento
@@ -638,11 +640,12 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             borderRadius={themeOptions.borderRadius}
                             colorScheme={themeOptions.focusColor}
                             _focusVisible="none"
+                            readOnly={!user?.uid}
                           />
                           <IconButton
                             colorScheme={themeOptions.focusColor}
                             onClick={handleSaveBirthDay}
-                            isDisabled={!isBirthDayChanged}
+                            isDisabled={!isBirthDayChanged || !user?.uid}
                           >
                             <LuIcons.LuCheck />
                           </IconButton>
@@ -656,7 +659,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       fontSize="xs"
                       fontWeight={600}
                       textTransform="uppercase"
-                      color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                      color={colorMode === "light" ? "gray.400" : "gray.600"}
                     >
                       Datos personales
                     </FormLabel>
@@ -670,66 +673,13 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                         alignItems="center"
                         justifyContent="space-between"
                         gap={4}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
-                      >
-                        <Box maxW="70%">
-                          <Text fontSize="md" fontWeight={600}>
-                            Correo electrónico
-                            {userInfo.emailVerified && (
-                              <>
-                                <Tooltip
-                                  label="Correo verificado"
-                                  placement="right"
-                                  fontSize="sm"
-                                  bg={
-                                    colorMode === "light"
-                                      ? "rgb(0, 0, 0)"
-                                      : "rgb(255, 255, 255)"
-                                  }
-                                  color={
-                                    colorMode === "light"
-                                      ? "#FFFFFF"
-                                      : "#000000"
-                                  }
-                                  borderRadius={themeOptions.borderRadius}
-                                >
-                                  <Icon ml={1} fontSize={20}>
-                                    <LuIcons.LuCircleCheck />
-                                  </Icon>
-                                </Tooltip>
-                              </>
-                            )}
-                          </Text>
-                          <Text fontSize="sm" fontWeight={400}>
-                            {userData.email}
-                          </Text>
-                        </Box>
-                        {!userInfo?.emailVerified && <VerifyEmailButton />}
-                      </HStack>
-                      <HStack
-                        px={3}
-                        py={2}
-                        border="2px solid var(--chakra-colors-chakra-border-color)"
-                        borderRadius={themeOptions.borderRadius}
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        gap={4}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
+                        bg={colorMode === "light" ? "white" : "black"}
                       >
                         <Text fontSize="md" fontWeight={600}>
                           Fecha de registro
                         </Text>
                         <Text fontSize="sm" fontWeight={400}>
-                          {formattedDate}
+                          {formattedRegistrationDate}
                         </Text>
                       </HStack>
                     </VStack>
@@ -740,7 +690,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       fontSize="xs"
                       fontWeight={600}
                       textTransform="uppercase"
-                      color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                      color={colorMode === "light" ? "gray.400" : "gray.600"}
                     >
                       Método de registro
                     </FormLabel>
@@ -750,32 +700,10 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                         py={2}
                         border="2px solid var(--chakra-colors-chakra-border-color)"
                         borderRadius={themeOptions.borderRadius}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
+                        bg={colorMode === "light" ? "white" : "black"}
                       >
-                        {userData.authProvider === "email" ? (
-                          <>
-                            <LuIcons.LuMail size="30px" />
-                            <Box
-                              fontFamily={themeOptions.fontFamily}
-                              display="flex"
-                              flexDirection="column"
-                              alignItems="flex-start"
-                              justifyContent="center"
-                              gap={0}
-                            >
-                              <Text fontSize="md" fontWeight={600}>
-                                Correo electrónico
-                              </Text>
-                              <Text fontSize="sm" fontWeight={400}>
-                                {userData.email}
-                              </Text>
-                            </Box>
-                          </>
-                        ) : (
+                        {user?.providerData?.[0]?.providerId ===
+                        "google.com" ? (
                           <>
                             <FaGoogle size="30px" />
                             <Box>
@@ -783,9 +711,63 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                                 Cuenta de Google
                               </Text>
                               <Text fontSize="sm" fontWeight={400}>
-                                {userData.email}
+                                {currentUserEmail}
                               </Text>
                             </Box>
+                          </>
+                        ) : (
+                          <>
+                            <LuIcons.LuMail size="30px" />
+                            <Box flex={1}>
+                              <HStack spacing={1} alignItems="center">
+                                <Text fontSize="md" fontWeight={600}>
+                                  Correo electrónico
+                                </Text>
+                                {user?.emailVerified && (
+                                  <Tooltip
+                                    label="Correo verificado"
+                                    placement="right"
+                                    fontSize="sm"
+                                    bg={
+                                      colorMode === "light"
+                                        ? "#000000"
+                                        : "#ffffff"
+                                    }
+                                    color={
+                                      colorMode === "light"
+                                        ? "#ffffff"
+                                        : "#000000"
+                                    }
+                                    borderRadius={themeOptions.borderRadius}
+                                  >
+                                    <Icon
+                                      ml={1}
+                                      fontSize="1.2em"
+                                      as={LuIcons.LuCircleCheck}
+                                      color="green.500"
+                                    />
+                                  </Tooltip>
+                                )}
+                              </HStack>
+                              <Text fontSize="sm" fontWeight={400}>
+                                {currentUserEmail}
+                              </Text>
+                            </Box>
+                            {user &&
+                              !user.emailVerified &&
+                              user.providerData?.[0]?.providerId ===
+                                "password" && (
+                                <Button
+                                  mt={2}
+                                  size="sm"
+                                  colorScheme={themeOptions.focusColor}
+                                  leftIcon={<LuIcons.LuMailOpen />}
+                                  onClick={handleSendVerificationEmail}
+                                  isLoading={isSending}
+                                >
+                                  Verificar correo
+                                </Button>
+                              )}
                           </>
                         )}
                       </HStack>
@@ -797,7 +779,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       fontSize="xs"
                       fontWeight={600}
                       textTransform="uppercase"
-                      color={colorMode === "light" ? "#00000050" : "#FFFFFF50"}
+                      color={colorMode === "light" ? "gray.400" : "gray.600"}
                     >
                       Zona de peligro
                     </FormLabel>
@@ -812,11 +794,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                         alignItems="center"
                         justifyContent="space-between"
                         gap={4}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
+                        bg={colorMode === "light" ? "white" : "black"}
                       >
                         <Box maxW="70%">
                           <Text fontSize="md" fontWeight={600}>
@@ -838,7 +816,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                           py={0}
                           colorScheme="red"
                           variant="solid"
-                          onClick={handleLogout}
+                          onClick={onOpenLogoutConfirmation}
+                          isDisabled={!user?.uid}
                         >
                           Cerrar sesión
                         </Button>
@@ -853,11 +832,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                         alignItems="center"
                         justifyContent="space-between"
                         gap={4}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
+                        bg={colorMode === "light" ? "white" : "black"}
                       >
                         <Box maxW="70%">
                           <Text fontSize="md" fontWeight={600}>
@@ -879,10 +854,16 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       </HStack>
                     </VStack>
                   </VStack>
+                  <ConfirmationModal
+                    isOpen={isLogoutConfirmationOpen}
+                    onClose={onCloseLogoutConfirmation}
+                    title="¿Quieres cerrar la sesión?"
+                    description="Siempre que cierras sesión podrás volver cuando quieras y no perderás ningún progreso."
+                    onConfirm={handleConfirmLogout}
+                    confirmButtonText="Sí, cerrar sesión"
+                  />
                 </VStack>
               )}
-
-              {/* Tab 02 - General */}
               {activeTab === 1 && (
                 <VStack align="stretch" spacing={4}>
                   <Text fontSize="2xl" fontWeight={600}>
@@ -969,9 +950,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       <MenuList
                         borderRadius={themeOptions.borderRadius}
                         bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
+                          colorMode === "light" ? "var(--menu-bg)" : "gray.900"
                         }
                       >
                         <MenuOptionGroup
@@ -983,7 +962,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             bg={
                               colorMode === "light"
                                 ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
+                                : "gray.900"
                             }
                             _hover={{
                               bg:
@@ -999,7 +978,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             bg={
                               colorMode === "light"
                                 ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
+                                : "gray.900"
                             }
                             _hover={{
                               bg:
@@ -1060,9 +1039,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       <MenuList
                         borderRadius={themeOptions.borderRadius}
                         bg={
-                          colorMode === "light"
-                            ? "var(--menu-bg)"
-                            : "rgb(23, 23, 23)"
+                          colorMode === "light" ? "var(--menu-bg)" : "gray.900"
                         }
                       >
                         <MenuOptionGroup
@@ -1074,7 +1051,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             bg={
                               colorMode === "light"
                                 ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
+                                : "gray.900"
                             }
                             _hover={{
                               bg:
@@ -1090,7 +1067,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                             bg={
                               colorMode === "light"
                                 ? "var(--menu-bg)"
-                                : "rgb(23, 23, 23)"
+                                : "gray.900"
                             }
                             _hover={{
                               bg:
@@ -1207,8 +1184,6 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                   </HStack>
                 </VStack>
               )}
-
-              {/* Tab 03 - Páginas principales */}
               {activeTab === 2 && (
                 <VStack align="stretch" spacing={4}>
                   <Text fontSize="2xl" fontWeight={600}>
@@ -1234,11 +1209,7 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                       borderRadius={themeOptions.borderRadius}
                       href="http://patreon.com/habituo"
                       target="_blank"
-                      bg={
-                        colorMode === "light"
-                          ? "rgb(255, 255, 255)"
-                          : "rgb(0, 0, 0)"
-                      }
+                      bg={colorMode === "light" ? "white" : "black"}
                       _hover={{ textDecoration: "none" }}
                     >
                       <Box
@@ -1247,16 +1218,8 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
                         right={-2}
                         w={6}
                         h={6}
-                        bg={
-                          colorMode === "light"
-                            ? "rgb(0, 0, 0)"
-                            : "rgb(255, 255, 255)"
-                        }
-                        color={
-                          colorMode === "light"
-                            ? "rgb(255, 255, 255)"
-                            : "rgb(0, 0, 0)"
-                        }
+                        bg={colorMode === "light" ? "black" : "white"}
+                        color={colorMode === "light" ? "white" : "black"}
                         borderRadius="50%"
                         display="flex"
                         alignItems="center"
@@ -1295,15 +1258,6 @@ const ModalWithTabs = ({ isOpen, onClose, userData, userInfo }) => {
       </ModalContent>
     </Modal>
   );
-};
-
-ModalWithTabs.propTypes = {
-  userInfo: PropTypes.shape({
-    email: PropTypes.string.isRequired,
-    displayName: PropTypes.string,
-    photoURL: PropTypes.string,
-  }).isRequired,
-  userData: PropTypes.object,
 };
 
 export default ModalWithTabs;

@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTheme } from "../../../context/ThemeContext";
+import { useAuthUser } from "../../../context/AuthUserContext";
 import {
   VStack,
   Box,
@@ -21,8 +23,6 @@ import {
   checkFailedHabit as checkFailedHabitInDb,
   getWeekNumber,
 } from "../../../hooks/database";
-import { useTheme } from "../../../context/ThemeContext";
-import { useAuth } from "../../../context/AuthContext";
 import {
   ColumnHeader,
   ModalHabit,
@@ -32,15 +32,12 @@ import {
 } from "../../../routes/index";
 
 const AllHabits = ({ setSelectedHabit }) => {
-  // Basic experience states
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
-  const { user } = useAuth();
+  const { user } = useAuthUser();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
-
-  // Areas and Habits states
   const [habitToEdit, setHabitToEdit] = useState(null);
   const [habitsByArea, setHabitsByArea] = useState([]);
   const [habitToDelete, setHabitToDelete] = useState(null);
@@ -56,35 +53,54 @@ const AllHabits = ({ setSelectedHabit }) => {
     onClose: closeModalHabit,
   } = useDisclosure();
 
-  useEffect(() => {
+  const refreshHabits = useCallback(async () => {
     if (!user?.uid) {
+      setHabitsByArea([]);
       setIsLoading(false);
       return;
     }
-
     setIsLoading(true);
-    isMountedRef.current = true;
-
-    const unsubscribe = getAllHabitsByArea((data) => {
+    try {
+      const fetchedHabits = await getAllHabitsByArea(user.uid);
       if (isMountedRef.current) {
-        setHabitsByArea(data);
+        setHabitsByArea(fetchedHabits);
+      }
+    } catch (error) {
+      toast({
+        title: <Text fontWeight={600}>Error de carga</Text>,
+        description: "No se pudieron cargar los hábitos. Inténtalo de nuevo.",
+        status: "error",
+        position: "bottom",
+      });
+    } finally {
+      if (isMountedRef.current) {
         setIsLoading(false);
       }
-    });
+    }
+  }, [user?.uid, toast]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    refreshHabits();
 
     return () => {
       isMountedRef.current = false;
-      unsubscribe();
     };
-  }, [user?.uid]);
+  }, [refreshHabits]);
 
   useEffect(() => {
     if (!user?.uid || habitsByArea.length === 0) return;
 
+    habitsByArea.forEach((area) => {
+      area.habits.forEach((habit) => {
+        checkFailedHabitInDb(user.uid, area.id, habit.id, toast, habit.name);
+      });
+    });
+
     const interval = setInterval(() => {
       habitsByArea.forEach((area) => {
         area.habits.forEach((habit) => {
-          checkFailedHabitInDb(area.id, habit.id, toast, habit.name);
+          checkFailedHabitInDb(user.uid, area.id, habit.id, toast, habit.name);
         });
       });
     }, 60 * 60 * 1000);
@@ -92,35 +108,30 @@ const AllHabits = ({ setSelectedHabit }) => {
     return () => clearInterval(interval);
   }, [user?.uid, habitsByArea, toast]);
 
-  const confirmDelete = (habit) => {
-    setHabitToDelete(habit);
-    openDeleteModal();
-  };
+  const confirmDelete = useCallback(
+    (habit) => {
+      setHabitToDelete(habit);
+      openDeleteModal();
+    },
+    [openDeleteModal]
+  );
 
-  const orderBy = searchParams.get("order_by") || "asc";
-  const viewLayout = searchParams.get("layout") || "grid";
+  const handleEdit = useCallback(
+    (habit) => {
+      setHabitToEdit(habit);
+      setSelectedHabit(habit);
+      openModalHabit();
+    },
+    [setSelectedHabit, openModalHabit]
+  );
 
-  const handleEdit = (habit) => {
-    setHabitToEdit(habit);
-    setSelectedHabit(habit);
-    openModalHabit();
-  };
-
-  const handleDelete = async () => {
-    if (!habitToDelete || !user) return;
+  const handleDelete = useCallback(async () => {
+    if (!habitToDelete || !user?.uid) return;
 
     try {
-      await deleteHabitFromDb(habitToDelete.area, habitToDelete.id);
-      setHabitsByArea((prev) =>
-        prev.map((area) => {
-          if (area.id !== habitToDelete.area) return area;
-          return {
-            ...area,
-            habits: area.habits.filter((h) => h.id !== habitToDelete.id),
-          };
-        })
-      );
+      await deleteHabitFromDb(user.uid, habitToDelete.area, habitToDelete.id);
       closeDeleteModal();
+      refreshHabits();
       toast({
         title: <Text fontWeight={600}>Hábito eliminado</Text>,
         description: `Se eliminó el hábito "${habitToDelete.name}" correctamente.`,
@@ -135,33 +146,79 @@ const AllHabits = ({ setSelectedHabit }) => {
         position: "bottom",
       });
     }
-  };
+  }, [habitToDelete, user?.uid, closeDeleteModal, refreshHabits, toast]);
 
-  const handleSkip = (habit) => {
-    skipHabitInDb(habit.area, habit.id, toast, habit.name);
-  };
+  const handleSkip = useCallback(
+    (habit) => {
+      if (!user?.uid) return;
+      skipHabitInDb(user.uid, habit.area, habit.id, toast, habit.name);
+    },
+    [user?.uid, toast]
+  );
 
-  const handleComplete = (habit) => {
-    if (habit) {
-      completeHabitInDb(habit.area, habit.id, habit, toast, getWeekNumber);
-    } else {
-      toast({
-        title: <Text fontWeight="600">Error</Text>,
-        description: "No se ha seleccionado ningún hábito para completar.",
-        status: "error",
-        position: "bottom",
-      });
-    }
-  };
+  const handleComplete = useCallback(
+    (habit) => {
+      if (!habit || !user?.uid) {
+        toast({
+          title: <Text fontWeight="600">Error</Text>,
+          description:
+            "No se ha seleccionado ningún hábito válido para completar.",
+          status: "error",
+          position: "bottom",
+        });
+        return;
+      }
+      completeHabitInDb(
+        user.uid,
+        habit.area,
+        habit.id,
+        habit,
+        toast,
+        getWeekNumber
+      );
+    },
+    [user?.uid, toast]
+  );
 
-  const filteredHabitsByArea = habitsByArea.map((area) => ({
-    ...area,
-    habits: [...area.habits].sort((a, b) => {
-      if (orderBy === "asc") return a.name.localeCompare(b.name);
-      if (orderBy === "desc") return b.name.localeCompare(a.name);
-      return 0;
-    }),
-  }));
+  const handleModalHabitClose = useCallback(
+    (shouldRefresh) => {
+      setHabitToEdit(null);
+      setSelectedHabit(null);
+      closeModalHabit();
+
+      if (shouldRefresh) {
+        refreshHabits();
+      }
+    },
+    [closeModalHabit, refreshHabits, setSelectedHabit]
+  );
+
+  const orderBy = searchParams.get("order_by") || "asc";
+  const viewLayout = searchParams.get("layout") || "grid";
+
+  const filteredHabitsByArea = React.useMemo(() => {
+    if (isLoading || !habitsByArea || habitsByArea.length === 0) return [];
+
+    return habitsByArea.map((area) => ({
+      ...area,
+      habits: [...area.habits].sort((a, b) => {
+        const nameA = a.name || "";
+        const nameB = b.name || "";
+
+        if (orderBy === "asc") return nameA.localeCompare(nameB);
+        if (orderBy === "desc") return nameB.localeCompare(nameA);
+        if (orderBy === "new-creation")
+          return (
+            (b.registeredAt?.toDate() || 0) - (a.registeredAt?.toDate() || 0)
+          );
+        if (orderBy === "last-creation")
+          return (
+            (a.registeredAt?.toDate() || 0) - (b.registeredAt?.toDate() || 0)
+          );
+        return 0;
+      }),
+    }));
+  }, [habitsByArea, orderBy, isLoading]);
 
   return (
     <Box
@@ -169,26 +226,16 @@ const AllHabits = ({ setSelectedHabit }) => {
       minH="100vh"
       maxH="100vh"
       overflowY="scroll"
-      sx={{
-        "&::-webkit-scrollbar": {
-          width: "6px",
-        },
-        "&::-webkit-scrollbar-thumb": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-200)`,
-          borderRadius: "4px",
-        },
-        "&::-webkit-scrollbar-thumb:hover": {
-          backgroundColor: `var(--chakra-colors-${themeOptions.focusColor}-400)`,
-        },
-        "&::-webkit-scrollbar-track": {
-          backgroundColor: "transparent",
-          borderRadius: "4px",
-        },
-      }}
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+      bg={colorMode === "light" ? "gray.100" : "gray.900"}
     >
-      <ColumnHeader page="all-habits" title="Todos los hábitos" />
+      <ColumnHeader
+        page="all-habits"
+        title="Todos los hábitos"
+        onModalCloseAndRefresh={refreshHabits}
+      />
       {isLoading ? (
+        <NoDataPage type="loading" />
+      ) : filteredHabitsByArea.length === 0 ? (
         <NoDataPage type="habits" />
       ) : (
         <VStack p={4} spacing={6} align="stretch">
@@ -201,7 +248,7 @@ const AllHabits = ({ setSelectedHabit }) => {
                 <Text
                   fontSize="md"
                   fontWeight={400}
-                  color={colorMode === "light" ? "#00000050" : "#ffffff50"}
+                  color={colorMode === "light" ? "gray.400" : "#ffffff50"}
                 >
                   - {area.habits.length}
                 </Text>
@@ -249,11 +296,7 @@ const AllHabits = ({ setSelectedHabit }) => {
           />
           <ModalHabit
             isOpen={isModalHabitOpen}
-            onClose={() => {
-              setHabitToEdit(null);
-              setSelectedHabit(null);
-              closeModalHabit();
-            }}
+            onClose={handleModalHabitClose}
             selectedHabit={habitToEdit}
           />
         </VStack>

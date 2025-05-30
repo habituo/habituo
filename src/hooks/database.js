@@ -1,272 +1,286 @@
-import { db, auth } from "./firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, getDocs, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
-import { signOut } from "firebase/auth";
+import { db } from "./firebase";
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, getDocs, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { Text } from "@chakra-ui/react";
 
-export const getUserId = () => {
-    const user = auth.currentUser;
-    if (!user) {
-        console.warn("No user is currently authenticated.");
-        return null;
-    }
-    return user.uid;
+const HABIT_STATUS = {
+    COMPLETED: "completed",
+    FAILED: "failed",
+    SKIPPED: "skipped",
+    DELETED: "deleted"
 };
 
-export const getUserInfo = async (userId) => {
-    try {
-        const uidToUse = userId || auth.currentUser?.uid;
-        if (!uidToUse) {
-            console.error("No user ID provided and no user is currently authenticated.");
-            return null;
-        }
-
-        const userDocRef = doc(db, "users", uidToUse);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-            return userDocSnap.data();
-        } else {
-            console.warn(`User document not found for ID: ${uidToUse}`);
-            return null;
-        }
-    } catch (error) {
-        console.error("Error fetching user information:", error);
-        return null;
-    }
-};
-
-export const getTasks = (callback) => {
-    const userId = auth.currentUser?.uid;
+export const getTasks = (userId, callback, onError) => {
     if (!userId) {
-        console.error("User not authenticated");
+        if (onError) onError(new Error("User ID is missing."));
+        return () => { };
+    }
+
+    if (typeof callback !== 'function') {
         return () => { };
     }
 
     try {
-        const tasksRef = collection(db, "users", userId, "tasks");
-        return onSnapshot(tasksRef, (snapshot) => {
+        const tasksCollectionRef = collection(db, "users", userId, "tasks");
+
+        const unsubscribe = onSnapshot(tasksCollectionRef, (snapshot) => {
             const tasksList = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
             }));
             callback(tasksList);
+        }, (error) => {
+            if (onError) onError(error);
         });
+
+        return unsubscribe;
     } catch (error) {
-        console.error("Error setting up tasks listener: ", error);
+        if (onError) onError(error);
         return () => { };
     }
 };
 
-export const getAreas = (callback) => {
-    const userId = auth.currentUser?.uid;
+export const getAreas = (userId, callback, onError) => {
     if (!userId) {
-        console.error("User not authenticated");
+        if (onError) onError(new Error("User ID is missing."));
+        return () => { };
+    }
+
+    if (typeof callback !== 'function') {
         return () => { };
     }
 
     try {
-        const areasRef = collection(db, "users", userId, "areas");
-        const unsubscribe = onSnapshot(areasRef, (snapshot) => {
+        const areasCollectionRef = collection(db, "users", userId, "areas");
+        const unsubscribe = onSnapshot(areasCollectionRef, (snapshot) => {
             const areasList = snapshot.docs.map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
             }));
             callback(areasList);
         }, (error) => {
-            console.error("Error setting up areas listener: ", error);
+            if (onError) onError(error);
         });
 
         return unsubscribe;
     } catch (error) {
-        console.error("Error setting up areas listener: ", error);
+        if (onError) onError(error);
         return () => { };
     }
 };
 
-export const getAllHabitsByArea = (callback) => {
-    const userId = auth.currentUser?.uid;
-    const areasRef = collection(db, `users/${userId}/areas`);
-
-    const unsubscribers = [];
-
-    const unsubscribeAreas = onSnapshot(areasRef, (areasSnapshot) => {
-        const areasData = [];
-
-        unsubscribers.forEach((unsub) => unsub());
-        unsubscribers.length = 0;
-
-        areasSnapshot.forEach((areaDoc) => {
-            const area = { id: areaDoc.id, ...areaDoc.data(), habits: [] };
-            areasData.push(area);
-            const habitsRef = collection(db, `users/${userId}/areas/${area.id}/habits`);
-
-            const unsubscribeHabits = onSnapshot(habitsRef, (habitsSnapshot) => {
-                const habits = habitsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-                const index = areasData.findIndex((a) => a.id === area.id);
-
-                if (index !== -1) {
-                    areasData[index].habits = habits;
-                    callback([...areasData]); // Emitir una nueva copia para detección de cambios
-                }
-            });
-
-            unsubscribers.push(unsubscribeHabits);
-        });
-    });
-
-    return () => {
-        unsubscribeAreas();
-        unsubscribers.forEach((unsub) => unsub());
-    };
-};
-
-export const getHabitsByArea = (areaId, callback) => {
-    const userId = auth.currentUser?.uid;
-    const habitsRef = collection(db, `users/${userId}/areas/${areaId}/habits`);
-
-    return onSnapshot(habitsRef, (habitsSnapshot) => {
-        const habitsData = habitsSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
-        callback(habitsData);
-    });
-};
-
-export const getAllHabits = async (areaId, callback, onErrorCallback) => {
-    const userId = auth.currentUser?.uid;
+export const subscribeToAreas = (userId, callback, onError) => {
     if (!userId) {
-        console.error("User not authenticated.");
-        if (onErrorCallback) {
-            onErrorCallback(new Error("User not authenticated."));
-        }
+        if (onError) onError(new Error("User ID is missing."));
         return () => { };
     }
 
-    if (!areaId) {
-        console.error("Area ID is required.");
-        if (onErrorCallback) {
-            onErrorCallback(new Error("Area ID is required."));
-        }
+    if (typeof callback !== 'function') {
         return () => { };
     }
 
     try {
-        const habitsCollection = collection(db, 'users', userId, 'areas', areaId, 'habits');
-        const unsubscribe = onSnapshot(habitsCollection, (snapshot) => {
-            const habits = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            callback(habits);
-        }, (error) => {
-            console.error("Error listening for habits in area:", error);
-            if (onErrorCallback) {
-                onErrorCallback(error);
+        const areasCollectionRef = collection(db, "users", userId, "areas");
+        const unsubscribe = onSnapshot(
+            areasCollectionRef,
+            (snapshot) => {
+                const areasList = snapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                callback(areasList);
+            },
+            (error) => {
+                if (onError) onError(error);
             }
-        });
+        );
 
         return unsubscribe;
     } catch (error) {
-        console.error("Error setting up habits listener for area:", error);
-        if (onErrorCallback) {
-            onErrorCallback(error);
-        }
+        if (onError) onError(error);
         return () => { };
     }
 };
 
-export const getAreasWithHabitCounts = async () => {
-    const user = auth.currentUser;
-    if (!user) {
-        console.error("User not authenticated");
+export const getAllHabitsByArea = async (userId) => {
+    if (!userId) {
         return [];
     }
 
-    const userId = user.uid;
     const areasRef = collection(db, `users/${userId}/areas`);
     const areasSnapshot = await getDocs(areasRef);
 
-    return areasSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        registeredAt: doc.data().registeredAt ? doc.data().registeredAt.toDate() : null,
-        icon: doc.data().icon || "LuFolder",
-        habitCount: doc.data().habitCount || 0,
+    const areasWithHabits = [];
+
+    await Promise.all(areasSnapshot.docs.map(async (areaDoc) => {
+        const areaData = { id: areaDoc.id, ...areaDoc.data() };
+        const habitsRef = collection(doc(db, `users/${userId}/areas`, areaDoc.id), 'habits');
+        const habitsSnapshot = await getDocs(habitsRef);
+        const habits = habitsSnapshot.docs.map((habitDoc) => ({
+            id: habitDoc.id,
+            ...habitDoc.data(),
+            registeredAt: habitDoc.data().registeredAt ? habitDoc.data().registeredAt.toDate() : null,
+        }));
+
+        areasWithHabits.push({ ...areaData, habits });
     }));
+
+    return areasWithHabits;
 };
 
-export const deleteAreaById = async (areaId) => {
-    const user = auth.currentUser;
-    if (!user) {
-        throw new Error("User not authenticated");
+export const subscribeToAllAreasAndHabits = (userId, onData, onError) => {
+    if (!userId) {
+        const error = new Error("User ID is missing. Cannot subscribe to habits.");
+        if (onError) onError(error);
+        return () => { };
     }
 
+    if (typeof onData !== 'function') {
+        const error = new Error("onData callback must be a function.");
+        if (onError) onError(error);
+        return () => { };
+    }
+
+    const handleError = typeof onError === 'function' ? onError : (err) => {
+        new Error("Unhandled error in subscribeToAllAreasAndHabits:", err);
+    };
+
+    const unsubscribes = [];
+
     try {
-        await deleteDoc(doc(db, `users/${user.uid}/areas/${areaId}`));
+        const areasCollectionRef = collection(db, "users", userId, "areas");
+        const unsubscribeAreas = onSnapshot(
+            areasCollectionRef,
+            (areasSnapshot) => {
+                const allAreas = {};
+                const newUnsubscribes = [];
+
+                unsubscribes.forEach(unsub => unsub());
+                unsubscribes.length = 0;
+
+                if (areasSnapshot.empty) {
+                    onData([]);
+                    return;
+                }
+
+                areasSnapshot.docs.forEach(areaDoc => {
+                    const areaData = { id: areaDoc.id, ...areaDoc.data(), habits: [] };
+                    allAreas[areaData.id] = areaData;
+
+                    const habitsCollectionRef = collection(db, "users", userId, "areas", areaDoc.id, "habits");
+
+                    const unsubscribeHabits = onSnapshot(
+                        habitsCollectionRef,
+                        (habitsSnapshot) => {
+                            allAreas[areaDoc.id].habits = [];
+
+                            habitsSnapshot.docs.forEach(habitDoc => {
+                                const habit = { id: habitDoc.id, ...habitDoc.data() };
+                                allAreas[areaDoc.id].habits.push(habit);
+                            });
+
+                            const resultAreas = Object.values(allAreas).map(area => ({
+                                id: area.id,
+                                name: area.name || "General",
+                                icon: area.icon || "LuCircleDot",
+                                habits: area.habits
+                            }));
+                            onData(resultAreas);
+                        },
+                        (error) => {
+                            handleError(error);
+                        }
+                    );
+                    newUnsubscribes.push(unsubscribeHabits);
+                });
+
+                unsubscribes.push(unsubscribeAreas, ...newUnsubscribes);
+
+            },
+            (error) => {
+                handleError(error);
+            }
+        );
+
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
     } catch (error) {
-        console.error("Error deleting area:", error);
-        throw error; // Re-lanza el error para que AllAreas.jsx lo maneje
+        handleError(error);
+        return () => { };
     }
 };
 
-export const updateAreaById = async (areaId, areaData) => {
-    const user = auth.currentUser;
-    if (!user) {
-        throw new Error("User not authenticated");
+export const subscribeToHabitsByArea = (userId, areaId, onData, onError) => {
+    if (!userId) {
+        const error = new Error("User ID is required to subscribe to habits by area.");
+        if (onError) onError(error);
+        return () => { };
+    }
+    if (!areaId) {
+        const error = new Error("Area ID is required to subscribe to habits.");
+        if (onError) onError(error);
+        return () => { };
+    }
+    if (typeof onData !== 'function') {
+        const error = new Error("onData callback must be a function.");
+        if (onError) onError(error);
+        return () => { };
+    }
+
+    const handleError = typeof onError === 'function' ? onError : (err) => {
+        new Error("Unhandled error in subscribeToHabitsByArea:", err);
+    };
+
+    try {
+        const habitsRef = collection(db, "users", userId, "areas", areaId, "habits");
+        const unsubscribe = onSnapshot(
+            habitsRef,
+            (habitsSnapshot) => {
+                const habitsData = habitsSnapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                onData(habitsData);
+            },
+            (error) => {
+                handleError(error);
+            }
+        );
+
+        return unsubscribe;
+    } catch (error) {
+        handleError(error);
+        return () => { };
+    }
+};
+
+export const deleteAreaById = async (areaId, userId) => {
+    if (!userId || !areaId) {
+        throw new Error("User ID and Area ID are required to delete an area.");
+    }
+
+    const areaDocRef = doc(db, "users", userId, "areas", areaId);
+    await deleteDoc(areaDocRef);
+};
+
+export const updateAreaById = async (areaId, userId, areaData) => {
+    if (!userId) {
+        throw new Error("User ID is required to update an area.");
     }
     try {
-        const areaDoc = doc(db, `users/${user.uid}/areas/${areaId}`);
+        const areaDoc = doc(db, `users/${userId}/areas/${areaId}`);
         await updateDoc(areaDoc, areaData);
     } catch (error) {
-        throw new Error("Error updating area:", error);
+        throw new Error(`Error updating area with ID ${areaId}: ${error.message}`);
     }
 };
 
-export const fetchUserDataFromFirestore = async (userId) => {
-    if (!userId) return null;
-    try {
-        const userRef = doc(db, "users", userId);
-        const userSnap = await getDoc(userRef);
-        return userSnap.exists() ? userSnap.data() : null;
-    } catch (error) {
-        console.error("Error al obtener los datos del usuario:", error);
-        return null;
+export const updateUserData = async (userId, data) => {
+    if (!userId) {
+        throw new Error("User ID is required to update user data.");
     }
-};
-
-export const updateUserData = async (userId, data, toast) => {
-    if (!userId) throw new Error("User ID cannot be empty.");
-    try {
-        const userRef = doc(db, "users", userId);
-        await updateDoc(userRef, data);
-    } catch (error) {
-        toast({
-            title: <Text fontWeight="600">Error al actualizar el usuario</Text>,
-            description: error,
-            status: "error",
-            position: "bottom",
-        });
-        throw error;
-    }
-};
-
-export const checkUserExists = async (userId) => {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    return userDoc.exists();
-};
-
-export const createUserDocument = async (userId, name, email, authProvider) => {
-    await setDoc(doc(db, "users", userId), {
-        authProvider,
-        birthday_date: "",
-        email,
-        name,
-        planExpiresAt: "",
-        registeredAt: serverTimestamp(),
-        subscriptionStatus: "inactive",
-        type_account: "basic",
-    });
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, data);
 };
 
 export const createDefaultAreas = async (userId) => {
@@ -288,194 +302,389 @@ export const createDefaultAreas = async (userId) => {
     await batch.commit();
 };
 
+export const fetchMonthlyHabitStats = async (userId) => {
+    if (!userId) {
+        throw new Error("User ID is required");
+    }
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let completed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    const areasRef = collection(db, "users", userId, "areas");
+    const areasSnapshot = await getDocs(areasRef);
+    const recordPromises = [];
+
+    for (const areaDoc of areasSnapshot.docs) {
+        const areaId = areaDoc.id;
+        const habitsRef = collection(db, "users", userId, "areas", areaId, "habits");
+        const habitsSnapshot = await getDocs(habitsRef);
+
+        for (const habitDoc of habitsSnapshot.docs) {
+            const habitId = habitDoc.id;
+            const recordsRef = collection(
+                db,
+                "users",
+                userId,
+                "areas",
+                areaId,
+                "habits",
+                habitId,
+                "records"
+            );
+            recordPromises.push(getDocs(recordsRef));
+        }
+    }
+
+    const allRecordsSnapshots = await Promise.all(recordPromises);
+
+    allRecordsSnapshots.forEach(recordsSnapshot => {
+        recordsSnapshot.forEach(recordDoc => {
+            const data = recordDoc.data();
+            const date = data.timestamp?.toDate?.();
+
+            if (
+                date &&
+                date.getFullYear() === currentYear &&
+                date.getMonth() === currentMonth
+            ) {
+                if (data.status === HABIT_STATUS.COMPLETED) {
+                    completed++;
+                } else if (data.status === HABIT_STATUS.SKIPPED) {
+                    skipped++;
+                } else if (data.status === HABIT_STATUS.FAILED) {
+                    failed++;
+                }
+            }
+        });
+    });
+
+    return { completed, skipped, failed };
+};
+
 const addDocument = async (path, data) => await addDoc(collection(db, path), data);
-const updateDocument = async (path, id, data) => await updateDoc(doc(db, path, id), data);
-const deleteDocument = async (path, id) => await deleteDoc(doc(db, path, id));
 
-export const addTask = (taskData) => addDocument(`users/${auth.currentUser?.uid}/tasks`, taskData);
-export const updateTask = (id, taskData) => updateDocument(`users/${auth.currentUser?.uid}/tasks`, id, taskData);
-export const deleteTask = (id) => deleteDocument(`users/${auth.currentUser?.uid}/tasks`, id);
+export const addTask = async (taskData, userId) => {
+    if (!userId) {
+        throw new Error("User ID is required to add a task.");
+    }
+    const tasksCollectionRef = collection(db, "users", userId, "tasks");
+    return await addDoc(tasksCollectionRef, { ...taskData, createdAt: new Date() });
+};
 
-export const addArea = (areaData) => addDocument(`users/${auth.currentUser?.uid}/areas`, areaData);
-export const updateArea = (id, areaData) => updateDocument(`users/${auth.currentUser?.uid}/areas`, id, areaData);
-export const deleteArea = (id) => deleteDocument(`users/${auth.currentUser?.uid}/areas`, id);
+export const updateTask = async (taskId, updateData, userId) => {
+    if (!userId || !taskId) {
+        throw new Error("User ID and Task ID are required to update a task.");
+    }
+    const taskDocRef = doc(db, "users", userId, "tasks", taskId);
+    await updateDoc(taskDocRef, updateData);
+};
 
-export const addHabit = (areaId, habitData) => addDocument(`users/${auth.currentUser?.uid}/areas/${areaId}/habits`, habitData);
-export const updateHabit = (areaId, id, habitData) => updateDocument(`users/${auth.currentUser?.uid}/areas/${areaId}/habits`, id, habitData);
-export const deleteHabit = (areaId, id) => deleteDocument(`users/${auth.currentUser?.uid}/areas/${areaId}/habits`, id);
+export const deleteTask = async (taskId, userId) => {
+    if (!userId || !taskId) {
+        throw new Error("User ID and Task ID are required to delete a task.");
+    }
+    const taskDocRef = doc(db, "users", userId, "tasks", taskId);
+    await deleteDoc(taskDocRef);
+};
 
-export const skipHabit = async (areaId, habitId, toast, habitName, selectedDate) => {
-    let now, year, month, day, dateString;
+export const addArea = (userId, areaData) => {
+    if (!userId) throw new Error("User ID is required to add an area.");
+    return addDocument(`users/${userId}/areas`, areaData);
+};
+
+const getTodayFormattedDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export const deleteHabit = async (userId, areaId, habitId, toast) => {
+    if (!userId || !areaId || !habitId) {
+        const errorMsg = "Faltan datos necesarios para eliminar el hábito.";
+        if (toast) {
+            toast({
+                title: <Text fontWeight={600}>Error</Text>,
+                description: errorMsg,
+                status: "error",
+                position: "bottom",
+            });
+        }
+        throw new Error(errorMsg);
+    }
 
     try {
-        const userId = auth.currentUser?.uid;
+        const recordsRef = collection(db, "users", userId, "areas", areaId, "habits", habitId, "records");
+        const recordsSnap = await getDocs(recordsRef);
+        const deletePromises = recordsSnap.docs.map(docSnap => deleteDoc(docSnap.ref));
+        await Promise.all(deletePromises);
+        const habitRef = doc(db, "users", userId, "areas", areaId, "habits", habitId);
+        await deleteDoc(habitRef);
 
-        if (selectedDate) {
-            now = selectedDate;
-            year = selectedDate.getFullYear();
-            month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-            day = selectedDate.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        } else {
-            now = new Date();
-            year = now.getFullYear();
-            month = (now.getMonth() + 1).toString().padStart(2, '0');
-            day = now.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        }
-
-        const recordsRef = collection(
-            db,
-            `users/${userId}/areas/${areaId}/habits/${habitId}/records`
-        );
-        const recordDoc = doc(recordsRef, dateString);
-        const recordSnap = await getDoc(recordDoc);
-
-        const recordData = {
-            status: "skipped",
-            timestamp: now,
-            date: dateString,
-            times: 0,
-        };
-
-        if (recordSnap.exists()) {
-            await updateDoc(recordDoc, recordData);
+        if (toast) {
             toast({
-                title: <Text fontWeight="600">Hábito actualizado a saltado</Text>,
-                description: `Se ha marcado el hábito "${habitName}" como saltado.`,
-                status: "warning",
-                position: "bottom"
-            });
-        } else {
-            await setDoc(recordDoc, recordData);
-            toast({
-                title: <Text fontWeight="600">Hábito saltado</Text>,
-                description: `Se ha marcado el hábito "${habitName}" como saltado.`,
-                status: "warning",
-                position: "bottom"
+                title: <Text fontWeight={600}>Hábito eliminado</Text>,
+                description: `El hábito ha sido eliminado correctamente.`,
+                status: "success",
+                position: "bottom",
             });
         }
     } catch (error) {
+        if (toast) {
+            toast({
+                title: <Text fontWeight={600}>Error al eliminar</Text>,
+                description: error.message || "No se pudo eliminar el hábito.",
+                status: "error",
+                position: "bottom",
+            });
+        }
+        throw error;
+    }
+};
+
+export const completeHabit = async (
+    userId,
+    areaId,
+    habitId,
+    habitData,
+    toast,
+    formattedDate,
+    completionAmount = 1
+) => {
+    if (!userId || !areaId || !habitId || !habitData || !toast) {
         toast({
-            title: <Text fontWeight="600">Error al saltar</Text>,
-            description: "Ha ocurrido un problema. Prueba más tarde.",
+            title: <Text fontWeight={600}>Error de datos</Text>,
+            description: "Faltan datos esenciales para completar el hábito.",
             status: "error",
-            position: "bottom"
+            position: "bottom",
+        });
+        return;
+    }
+
+    if (!habitData.goal || !habitData.goal.unit) {
+        toast({
+            title: <Text fontWeight={600}>Error de configuración</Text>,
+            description:
+                "El hábito no tiene una unidad de meta definida (e.g., 'times' o 'minutes').",
+            status: "error",
+            position: "bottom",
+        });
+        return;
+    }
+
+    const recordDocRef = doc(
+        db,
+        "users",
+        userId,
+        "areas",
+        areaId,
+        "habits",
+        habitId,
+        "records",
+        formattedDate
+    );
+
+    try {
+        const recordSnap = await getDoc(recordDocRef);
+        let updateRecordFields = {
+            date: new Date(formattedDate),
+            status: HABIT_STATUS.COMPLETED,
+            timestamp: new Date(formattedDate),
+        };
+
+        const unitField = habitData.goal.unit === "minutes" ? "minutes" : "times";
+        updateRecordFields[unitField] = increment(completionAmount);
+
+        if (recordSnap.exists()) {
+            const existingData = recordSnap.data();
+            if (typeof existingData[unitField] !== "number") {
+                updateRecordFields[unitField] = completionAmount;
+            }
+        } else {
+            updateRecordFields[unitField] = completionAmount;
+        }
+        await setDoc(recordDocRef, updateRecordFields, { merge: true });
+
+        const habitDocRef = doc(db, "users", userId, "areas", areaId, "habits", habitId);
+        await updateDoc(habitDocRef, {
+            lastStatus: HABIT_STATUS.COMPLETED,
+            lastCompletionDate: serverTimestamp(),
+        });
+
+        toast({
+            title: <Text fontWeight={600}>Hábito completado</Text>,
+            description: `¡Felicidades! "${habitData.name}" completado para el ${formattedDate}.`,
+            status: "success",
+            position: "bottom",
+        });
+    } catch (error) {
+        toast({
+            title: <Text fontWeight={600}>Error al completar</Text>,
+            description: `No se pudo completar el hábito "${habitData.name}". Por favor, inténtalo de nuevo.`,
+            status: "error",
+            position: "bottom",
+        });
+        throw error;
+    }
+};
+
+export const skipHabit = async (userId, areaId, habitId, toast, habitName, date = new Date()) => {
+    if (!userId || !areaId || !habitId) {
+        toast?.({
+            title: <Text fontWeight={600}>Error</Text>,
+            description: "Faltan datos para saltar el hábito.",
+            status: "error",
+            position: "bottom",
+        });
+        return;
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${day}`;
+    const parsedDate = new Date(`${formattedDate}T00:00:00`);
+
+    try {
+        const recordRef = doc(db, "users", userId, "areas", areaId, "habits", habitId, "records", formattedDate);
+
+        await setDoc(recordRef, {
+            date: parsedDate,
+            status: "skipped",
+            times: 1,
+            timestamp: parsedDate,
+        });
+
+        const habitRef = doc(db, "users", userId, "areas", areaId, "habits", habitId);
+        await updateDoc(habitRef, {
+            lastStatus: "skipped",
+            lastStatusDate: parsedDate,
+        });
+
+        toast?.({
+            title: <Text fontWeight={600}>Hábito saltado</Text>,
+            description: `"${habitName}" ha sido marcado como saltado para el ${formattedDate}.`,
+            status: "info",
+            position: "bottom",
+        });
+    } catch (error) {
+        toast({
+            title: <Text fontWeight={600}>Error</Text>,
+            description: "No se pudo saltar el hábito.",
+            status: "error",
+            position: "bottom",
         });
     }
 };
 
-export const completeHabit = async (areaId, habitId, habit, toast, getWeekNumber, selectedDate) => {
-    let now, year, month, day, dateString;
+export const checkFailedHabit = async (userId, areaId, habitId, toast, habitName) => {
+    if (!userId || !areaId || !habitId) return;
+
+    const today = getTodayFormattedDate();
+    const recordDocRef = doc(db, "users", userId, "areas", areaId, "habits", habitId, "records", today);
 
     try {
-        const userId = auth.currentUser?.uid;
-        if (selectedDate) {
-            now = selectedDate;
-            year = selectedDate.getFullYear();
-            month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-            day = selectedDate.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
+        const recordSnap = await getDoc(recordDocRef);
+
+        if (!recordSnap.exists()) {
+            await setDoc(recordDocRef, {
+                date: today,
+                status: "failed",
+                times: 0,
+                timestamp: serverTimestamp(),
+            });
+            toast({
+                title: <Text fontWeight={600}>Hábito fallido</Text>,
+                description: `¡Ups! Parece que "${habitName}" no se completó hoy.`,
+                status: "warning",
+                position: "bottom",
+            });
+
+            const habitDocRef = doc(db, "users", userId, "areas", areaId, "habits", habitId);
+            await updateDoc(habitDocRef, {
+                lastStatus: "failed",
+                lastStatusDate: serverTimestamp(),
+            });
         } else {
-            now = new Date();
-            year = now.getFullYear();
-            month = (now.getMonth() + 1).toString().padStart(2, '0');
-            day = now.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        }
-
-        const recordsRef = collection(
-            db,
-            `users/${userId}/areas/${areaId}/habits/${habitId}/records`
-        );
-        const recordDoc = doc(recordsRef, dateString);
-        const recordSnap = await getDoc(recordDoc);
-
-        if (habit?.repeat?.type === "day" && habit?.daysOfWeek) {
-            const dayOfWeekSpain = selectedDate ? selectedDate.getDay() : new Date().getDay();
-            if (!habit.daysOfWeek.includes(dayOfWeekSpain)) {
-                toast({
-                    title: <Text fontWeight="600">Hábito no programado</Text>,
-                    description: `El hábito "${habit.name}" no está programado para hoy.`,
-                    status: "warning",
-                    position: "bottom"
-                });
+            const recordData = recordSnap.data();
+            if (recordData.status === "failed") {
                 return;
             }
-        }
-
-        const recordData = {
-            status: "completed",
-            date: dateString,
-            timestamp: now,
-            times: 1,
-        };
-
-        if (habit?.type === "weekly" && getWeekNumber) {
-            recordData.week = selectedDate ? getWeekNumber(selectedDate) : getWeekNumber(new Date());
-        } else if (habit?.type === "monthly") {
-            if (selectedDate) {
-                const date = new Date((now).seconds * 1000);
-                recordData.month = date.getMonth() + 1;
-                recordData.year = date.getFullYear();
-            } else {
-                recordData.month = selectedDate.getMonth() + 1;
-                recordData.year = selectedDate.getFullYear();
+            if (recordData.status === "completed" || recordData.status === "skipped") {
+                return;
             }
-        }
-
-        if (recordSnap.exists()) {
-            await updateDoc(recordDoc, {
-                status: "completed",
-                date: dateString,
-                timestamp: now,
-                times: (recordSnap.data()?.times || 0) + 1,
+            await setDoc(recordDocRef, {
+                date: today,
+                status: "failed",
+                times: recordData.times || 0,
+                timestamp: serverTimestamp(),
             });
             toast({
-                title: <Text fontWeight="600">¡Hábito actualizado!</Text>,
-                description: `Se ha actualizado la completación del hábito "${habit.name}".`,
-                status: "success",
-                position: "bottom"
-            });
-        } else {
-            await setDoc(recordDoc, recordData);
-            toast({
-                title: <Text fontWeight="600">¡Hábito completado!</Text>,
-                description: `Se ha completado el hábito "${habit.name}" correctamente.`,
-                status: "success",
-                position: "bottom"
+                title: <Text fontWeight={600}>Hábito fallido</Text>,
+                description: `¡Ups! Parece que "${habitName}" no se completó hoy.`,
+                status: "warning",
+                position: "bottom",
             });
         }
-
     } catch (error) {
-        console.error("Error completing/updating habit:", error);
         toast({
-            title: <Text fontWeight="600">Error al completar/actualizar</Text>,
-            description: "Ha ocurrido un problema. Prueba más tarde.",
+            title: <Text fontWeight={600}>Error al chequear hábito</Text>,
+            description: `No se pudo verificar si "${habitName}" falló.`,
             status: "error",
-            position: "bottom"
+            position: "bottom",
         });
     }
 };
 
-export const deleteHabitRecord = async (areaId, habitId, toast, habitName, selectedDate) => {
+export const addHabit = async (userId, areaId, habitData) => {
+    if (!userId || !areaId) {
+        throw new Error("User ID and Area ID are required to add a habit.");
+    }
+    const habitsCollectionRef = collection(db, "users", userId, "areas", areaId, "habits");
+    return await addDoc(habitsCollectionRef, habitData);
+};
+
+export const updateHabit = async (userId, areaId, habitId, updatedData) => {
+    if (!userId || !areaId || !habitId) {
+        throw new Error("User ID, Area ID, and Habit ID are required to update a habit.");
+    }
+    const habitDocRef = doc(db, "users", userId, "areas", areaId, "habits", habitId);
+    return await updateDoc(habitDocRef, updatedData);
+};
+
+export const deleteHabitRecord = async (userId, areaId, habitId, toast, habitName, selectedDate = new Date()) => {
+    if (!userId || !areaId || !habitId) {
+        toast?.({
+            title: <Text fontWeight={600}>Error</Text>,
+            description: "Faltan datos necesarios para borrar el registro.",
+            status: "error",
+            position: "bottom",
+        });
+        return;
+    }
+
+    if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
+        toast?.({
+            title: <Text fontWeight={600}>Error</Text>,
+            description: "Fecha seleccionada no válida.",
+            status: "error",
+            position: "bottom",
+        });
+        return;
+    }
+
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+    const day = String(selectedDate.getDate()).padStart(2, "0");
+    const dateString = `${year}-${month}-${day}`;
+
     try {
-        const userId = auth.currentUser?.uid;
-        let year, month, day, dateString;
-
-        if (selectedDate) {
-            year = selectedDate.getFullYear();
-            month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-            day = selectedDate.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        } else {
-            const now = new Date();
-            year = now.getFullYear();
-            month = (now.getMonth() + 1).toString().padStart(2, '0');
-            day = now.getDate().toString().padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        }
-
         const recordDocRef = doc(
             db,
             `users/${userId}/areas/${areaId}/habits/${habitId}/records`,
@@ -486,125 +695,47 @@ export const deleteHabitRecord = async (areaId, habitId, toast, habitName, selec
 
         if (recordSnap.exists()) {
             await deleteDoc(recordDocRef);
-            toast({
-                title: <Text fontWeight="600">Registro borrado</Text>,
-                description: `Se ha borrado el registro del hábito "${habitName}" para el ${dateString}.`,
+            toast?.({
+                title: <Text fontWeight={600}>Registro borrado</Text>,
+                description: `Se ha eliminado el registro de "${habitName}" para el ${dateString}.`,
                 status: "success",
                 position: "bottom",
             });
         } else {
-            toast({
-                title: <Text fontWeight="600">Sin registro</Text>,
-                description: `No hay ningún registro del hábito "${habitName}" para el ${dateString}.`,
+            toast?.({
+                title: <Text fontWeight={600}>Sin registro</Text>,
+                description: `No se encontró ningún registro de "${habitName}" para el ${dateString}.`,
                 status: "info",
                 position: "bottom",
             });
         }
     } catch (error) {
-        console.error("Error deleting habit record:", error);
-        toast({
-            title: <Text fontWeight="600">Error al borrar</Text>,
-            description: "Ha ocurrido un problema al intentar borrar el registro. Prueba más tarde.",
+        toast?.({
+            title: <Text fontWeight={600}>Error al borrar</Text>,
+            description:
+                "Ocurrió un problema al intentar eliminar el registro. Intenta nuevamente.",
             status: "error",
             position: "bottom",
         });
     }
 };
 
-export const getWeekNumber = (date) => {
-    // Copy the date object to avoid modifying the original
-    const d = new Date(
-        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-    );
-    // Get day of year
-    const dayOfYear = Math.floor(
-        (d - new Date(d.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24
-    );
-    // Get first day of year (Sunday)
-    const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
-    // Calculate the difference in days and add 1 (for the first week)
-    const diffDays =
-        Math.round((d - firstDayOfYear) / (1000 * 60 * 60 * 24)) + 1;
-    // Calculate week number
-    const weekNumber = Math.ceil(diffDays / 7);
-    return weekNumber;
-};
-
-export const checkFailedHabit = async (areaId, habitId, toast, habitName) => {
-    try {
-        const userId = auth.currentUser?.uid;
-        const now = new Date();
-        const dateString = now.toISOString().split("T")[0]; // Use YYYY-MM-DD for consistency
-
-        const recordsRef = collection(
-            db,
-            `users/${userId}/areas/${areaId}/habits/${habitId}/records`
-        );
-        const recordDoc = doc(recordsRef, dateString);
-        const recordSnap = await getDoc(recordDoc);
-
-        if (!recordSnap.exists()) {
-            // If no record for today, create one as "failed"
-            await setDoc(recordDoc, {
-                status: "failed",
-                timestamp: now,
-                date: dateString,
-            });
-        }
-    } catch (error) {
-        console.error(`Error checking failed habit ${habitName} (${habitId}):`, error);
-        toast({
-            title: <Text fontWeight="600">Error al registrar el proceso</Text>,
-            description: `Ha ocurrido un problema al verificar el hábito "${habitName}". Prueba más tarde.`,
-            status: "error",
-            position: "bottom"
-        });
-    }
+export const getWeekNumber = (d = new Date()) => {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
 };
 
 export const getAreaNameById = (areaId, areas) => {
-    if (typeof areaId !== 'string') {
-        console.warn("getAreaNameById: areaId must be a string.");
-        return undefined;
+    if (!Array.isArray(areas) || areas.length === 0) {
+        return "Área Desconocida";
     }
 
-    if (!Array.isArray(areas)) {
-        console.warn("getAreaNameById: areas must be an array.");
-        return undefined;
-    }
+    const area = areas.find((a) => a.id === areaId);
 
-    const foundArea = areas.find(area => area?.id === areaId);
-    return foundArea?.name;
-};
-
-export const getHabitRecords = async (areaId, habitId) => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) {
-        console.error("Usuario no autenticado.");
-        return [];
-    }
-
-    if (!areaId || !habitId) {
-        console.error("Faltan Area ID o Habit ID.");
-        return [];
-    }
-
-    try {
-        const recordsRef = collection(
-            db,
-            `users/${userId}/areas/${areaId}/habits/${habitId}/records`
-        );
-        const querySnapshot = await getDocs(recordsRef);
-        const records = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            date: doc.data().timestamp?.toDate() || null, // Asegúrate de manejar el timestamp
-        }));
-        return records;
-    } catch (error) {
-        console.error("Error al obtener los records del hábito:", error);
-        return [];
-    }
+    return area ? area.name : "Área Desconocida";
 };
 
 export const getHabitRecordsListener = (userId, areaId, habitId, onUpdate, onError) => {
@@ -628,7 +759,6 @@ export const getHabitRecordsListener = (userId, areaId, habitId, onUpdate, onErr
                 onUpdate(records);
             },
             (error) => {
-                console.error("Error listening for habit records:", error);
                 if (onError) {
                     onError(error);
                 }
@@ -637,7 +767,6 @@ export const getHabitRecordsListener = (userId, areaId, habitId, onUpdate, onErr
 
         return unsubscribe;
     } catch (error) {
-        console.error("Error setting up listener for habit records:", error);
         return () => { };
     }
 };
@@ -661,11 +790,9 @@ export const getHabitRecordsGroupedByDay = async (userId, areaId, habitId) => {
                 const [year, month, day] = dateStr.split('-').map(Number);
                 dateObj = new Date(year, month - 1, day);
                 if (isNaN(dateObj.getTime())) {
-                    console.warn(`ID de documento con formato de fecha inválido: ${dateStr}`);
                     return;
                 }
             } catch (error) {
-                console.warn(`Error al parsear la fecha del ID del documento: ${dateStr}`, error);
                 return;
             }
 
@@ -682,7 +809,6 @@ export const getHabitRecordsGroupedByDay = async (userId, areaId, habitId) => {
 
         return groupedRecords;
     } catch (error) {
-        console.error("Error al obtener los records de hábitos agrupados por día:", error);
         return [];
     }
 };
@@ -714,16 +840,13 @@ export const getHabitRecordsGroupedByDayListener = (userId, areaId, habitId, onU
                                 if (!isNaN(parsedDate)) {
                                     date = parsedDate;
                                 } else {
-                                    console.warn("Warning: Unrecognized date format in Firestore:", timestamp);
                                     return;
                                 }
                             } catch (error) {
-                                console.error("Error parsing date:", error);
                                 return;
                             }
                         }
                     } else {
-                        console.warn("Warning: Document has no date or timestamp:", doc.id);
                         return;
                     }
 
@@ -739,6 +862,7 @@ export const getHabitRecordsGroupedByDayListener = (userId, areaId, habitId, onU
                             month: new Intl.DateTimeFormat('es', { month: 'short' }).format(date),
                             year,
                             times: (recordsMap[key]?.times || 0) + (data.times || 1),
+                            status: data.status || "unknown",
                         };
                     }
                 });
@@ -746,7 +870,6 @@ export const getHabitRecordsGroupedByDayListener = (userId, areaId, habitId, onU
                 onUpdate(sortedRecords);
             },
             (error) => {
-                console.error("Error listening for habit records:", error);
                 if (onError) {
                     onError(error);
                 }
@@ -754,27 +877,6 @@ export const getHabitRecordsGroupedByDayListener = (userId, areaId, habitId, onU
         );
         return unsubscribe;
     } catch (error) {
-        console.error("Error setting up listener:", error);
         return () => { };
-    }
-};
-
-export const logoutUser = async (toast) => {
-    try {
-        await signOut(auth);
-        toast({
-            title: <Text fontWeight="600">Sesión cerrada</Text>,
-            description: "Has cerrado sesión exitosamente.",
-            status: "success",
-            position: "bottom",
-        });
-        window.location.href = "/";
-    } catch (error) {
-        toast({
-            title: <Text fontWeight="600">Error al cerrar sesión</Text>,
-            description: error.message,
-            status: "error",
-            position: "bottom",
-        });
     }
 };

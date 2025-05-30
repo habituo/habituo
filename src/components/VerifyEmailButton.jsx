@@ -1,57 +1,64 @@
-import React from "react";
+import { useState } from "react";
 import { Button, useToast, Text } from "@chakra-ui/react";
 import { useTheme } from "../context/ThemeContext";
-import { useAuth } from "../context/AuthContext";
+import { useAuthUser } from "../context/AuthUserContext";
 import { sendEmailVerification } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
 const VerifyEmailButton = () => {
   const { themeOptions } = useTheme();
-  const { user } = useAuth();
+  const { user } = useAuthUser();
   const toast = useToast();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSendVerificationEmail = async () => {
-    if (user) {
-      try {
-        await sendEmailVerification(user);
-        toast({
-          title: <Text fontWeight="600">Correo de verificación enviado</Text>,
-          description: `Se ha enviado un enlace de verificación a ${user.email}. Por favor, revisa tu bandeja de entrada y sigue las instrucciones.`,
-          status: "success",
-          duration: 5000,
-          isClosable: true,
-          position: "bottom",
-        });
-        navigate("/email-verified");
-      } catch (error) {
-        let errorMessage = "Error al enviar el correo de verificación.";
-        if (error.code === "auth/too-many-requests") {
-          errorMessage =
-            "Se han realizado demasiadas solicitudes. Inténtalo de nuevo más tarde.";
-        } else if (error.code === "auth/network-request-failed") {
-          errorMessage =
-            "Error de red. Por favor, verifica tu conexión a internet.";
-        }
-        toast({
-          title: <Text fontWeight="600">Error</Text>,
-          description: errorMessage,
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-          position: "bottom",
-        });
-      }
-    } else {
+    if (!user || !user.email) {
       toast({
-        title: <Text fontWeight="600">No se encontró usuario</Text>,
+        title: <Text fontWeight={600}>Error</Text>,
         description:
-          "No hay un usuario autenticado para enviar el correo de verificación.",
+          "No hay un usuario autenticado o su correo no está disponible.",
         status: "warning",
-        duration: 5000,
-        isClosable: true,
         position: "bottom",
       });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await sendEmailVerification(user);
+      toast({
+        title: <Text fontWeight={600}>Correo de verificación enviado</Text>,
+        description: `Se ha enviado un enlace de verificación a ${user.email}. Por favor, revisa tu bandeja de entrada y sigue las instrucciones.`,
+        status: "success",
+        position: "bottom",
+      });
+      navigate("/email-verified");
+    } catch (error) {
+      let errorMessage = "Error al enviar el correo de verificación.";
+      switch (error.code) {
+        case "auth/too-many-requests":
+          errorMessage =
+            "Demasiadas solicitudes. Inténtalo de nuevo más tarde.";
+          break;
+        case "auth/network-request-failed":
+          errorMessage = "Error de red. Verifica tu conexión a internet.";
+          break;
+        case "auth/invalid-credential":
+          errorMessage = "Credenciales inválidas.";
+          break;
+        default:
+          errorMessage =
+            "Error inesperado al enviar el correo de verificación.";
+      }
+      toast({
+        title: <Text fontWeight={600}>Error</Text>,
+        description: errorMessage,
+        status: "error",
+        position: "bottom",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,8 +68,11 @@ const VerifyEmailButton = () => {
       variant="solid"
       colorScheme={themeOptions.focusColor}
       onClick={handleSendVerificationEmail}
+      isLoading={isLoading}
+      loadingText="Enviando..."
+      isDisabled={isLoading || user?.emailVerified}
     >
-      Verificar correo
+      {user?.emailVerified ? "Correo verificado" : "Verificar correo"}
     </Button>
   );
 };

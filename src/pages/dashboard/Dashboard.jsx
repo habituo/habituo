@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation, useParams } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
+import { useAuthUser } from "../../context/AuthUserContext";
+import customTheme from "../../theme/theme";
 import { getAreas } from "../../hooks/database";
 import {
   AllAreas,
@@ -10,8 +12,6 @@ import {
   LeftColumn,
   DashboardHome,
 } from "../../routes/index";
-import customTheme from "../../theme/theme";
-import { useTheme } from "../../context/ThemeContext";
 import {
   Box,
   HStack,
@@ -20,36 +20,54 @@ import {
   ChakraProvider,
   SimpleGrid,
   Skeleton,
+  Spinner,
+  Center,
 } from "@chakra-ui/react";
 
 const Dashboard = () => {
   const { themeOptions } = useTheme();
-  const { user } = useAuth();
+  const { user, loading } = useAuthUser();
+  const navigate = useNavigate();
   const location = useLocation();
   const { areaId } = useParams();
 
   const [areas, setAreas] = useState([]);
   const [selectedHabit, setSelectedHabit] = useState(null);
   const [content, setContent] = useState(null);
+  const [loadingAreas, setLoadingAreas] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [loading, user, navigate]);
 
   const fetchAreas = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoadingAreas(false);
+      return;
+    }
 
-    const unsubscribe = getAreas((areasList) => {
+    setLoadingAreas(true);
+
+    const unsubscribe = getAreas(user.uid, (areasList) => {
       setAreas(areasList);
+      setLoadingAreas(false);
     });
 
     return unsubscribe;
   }, [user]);
 
   useEffect(() => {
-    const unsubscribe = fetchAreas();
-    return () => {
-      if (unsubscribe && typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, [fetchAreas]);
+    if (user && !loading) {
+      const unsubscribe = fetchAreas();
+      return () => {
+        if (unsubscribe && typeof unsubscribe === "function") {
+          unsubscribe();
+        }
+      };
+    }
+  }, [user, loading, fetchAreas]);
 
   useEffect(() => {
     if (areaId) {
@@ -64,13 +82,32 @@ const Dashboard = () => {
         "/dashboard/all-areas": <AllAreas />,
       };
 
-      setContent(
-        routeContent[location.pathname] || (
-          <DashboardHome setSelectedHabit={setSelectedHabit} />
-        )
-      );
+      setContent(routeContent[location.pathname] || <DashboardHome />);
     }
   }, [location.pathname, areaId, areas, setSelectedHabit]);
+
+  if (loading || !user) {
+    return (
+      <ChakraProvider
+        theme={customTheme(
+          themeOptions.focusColor,
+          themeOptions.fontFamily,
+          themeOptions.borderRadius
+        )}
+      >
+        <Center minH="100vh">
+          <VStack spacing={4}>
+            <Spinner
+              size="lg"
+              color={themeOptions.focusColor}
+              thickness="4px"
+            />
+            <Text fontSize="lg">Cargando...</Text>
+          </VStack>
+        </Center>
+      </ChakraProvider>
+    );
+  }
 
   return (
     <ChakraProvider
@@ -87,13 +124,28 @@ const Dashboard = () => {
         overflow="hidden"
         spacing={0}
       >
-        <Box w="13%">{user ? <LeftColumn userInfo={user} /> : null}</Box>
+        <Box w="13%">
+          <LeftColumn />
+        </Box>
         <Box w="67%" borderLeftWidth={2} borderRightWidth={2}>
-          {content}
+          {loadingAreas ? (
+            <Center minH="calc(100vh - 4px)">
+              <VStack spacing={4}>
+                <Spinner
+                  size="lg"
+                  color={themeOptions.focusColor}
+                  thickness="2px"
+                />
+                <Text fontSize="lg">Cargando...</Text>
+              </VStack>
+            </Center>
+          ) : (
+            content
+          )}
         </Box>
         <Box w="20%">
           {selectedHabit ? (
-                <HabitPage habit={selectedHabit} userInfo={user} />
+            <HabitPage habit={selectedHabit} allAreas={areas}  />
           ) : (
             <VStack
               w="100%"

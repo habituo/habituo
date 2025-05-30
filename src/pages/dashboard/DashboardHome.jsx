@@ -1,20 +1,27 @@
-import React, {useState, useEffect} from "react";
-import { Box, HStack, SimpleGrid, Text, useColorMode } from "@chakra-ui/react";
+import { useTheme } from "../../context/ThemeContext";
+import { useAuthUser } from "../../context/AuthUserContext";
+import {
+  Box,
+  Center,
+  HStack,
+  SimpleGrid,
+  Spinner,
+  Text,
+  useColorMode,
+  VStack,
+} from "@chakra-ui/react";
 import {
   TodoList,
   TimeTracker,
   ActivityTracker,
   AllContent,
 } from "../../routes/index";
-import { useAuth } from "../../context/AuthContext";
 import * as LuIcons from "react-icons/lu";
-import {getUserInfo} from "../../hooks/database"
 
 const DashboardHome = () => {
   const { colorMode } = useColorMode();
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { themeOptions } = useTheme();
+  const { user, loading } = useAuthUser();
 
   const getGreeting = () => {
     const now = new Date();
@@ -39,18 +46,24 @@ const DashboardHome = () => {
     return `${day} de ${month} de ${year}`;
   };
 
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      setLoading(true);
-      if (user?.uid) {
-        const info = await getUserInfo(user.uid);
-        setUserData(info);
-      }
-      setLoading(false);
-    };
+  if (loading || !user) {
+    return (
+      <Center
+        p={4}
+        w="100%"
+        minH="100vh"
+        bg={colorMode === "light" ? "gray.100" : "gray.900"}
+      >
+        <VStack spacing={4}>
+          <Spinner size="lg" color={themeOptions.focusColor} thickness="2px" />
+          <Text fontSize="lg">Cargando...</Text>
+        </VStack>
+      </Center>
+    );
+  }
 
-    fetchUserInfo();
-  }, [user]);
+  const userName =
+    user?.displayName || user?.name || user?.email?.split("@")[0] || "Usuario";
 
   return (
     <Box
@@ -58,7 +71,7 @@ const DashboardHome = () => {
       w="100%"
       minH="100vh"
       overflowX="hidden"
-      bg={colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"}
+      bg={colorMode === "light" ? "gray.100" : "gray.900"}
       _hover={{ textDecoration: "none" }}
     >
       <HStack
@@ -73,32 +86,27 @@ const DashboardHome = () => {
           fontWeight={400}
           color={colorMode === "light" ? "#00000060" : "#FFFFFF60"}
         >
-          {getGreeting()}
-          {userData && (
-            <>
-              ,{" "}
-              <Text
-                as="span"
-                fontWeight={600}
-                color={colorMode === "light" ? "#000000" : "#FFFFFF"}
-              >
-                {userData.name}
-              </Text>
-            </>
-          )}
+          {getGreeting()},
+          <Text
+            as="span"
+            fontWeight={600}
+            color={colorMode === "light" ? "#000000" : "#FFFFFF"}
+          >
+            {userName}
+          </Text>
         </Text>
         <HStack spacing={2}>
           <LuIcons.LuCalendarDays size="18px" />
-        <Text fontSize="lg" fontWeight={400}>
-          {getCurrentDate()}
-        </Text>
+          <Text fontSize="lg" fontWeight={400}>
+            {getCurrentDate()}
+          </Text>
         </HStack>
       </HStack>
-      <SimpleGrid columns={3} spacing={4}>
+      <SimpleGrid columns={3} templateRows='repeat(2, 1fr)' spacing={4}>
         <TodoList />
         <TimeTracker />
         <ActivityTracker />
-        {userData && <AllContent />}
+        <AllContent userId={user.uid} />
       </SimpleGrid>
     </Box>
   );

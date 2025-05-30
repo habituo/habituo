@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTheme } from "../../../context/ThemeContext";
 import useListGridConfig from "../../../hooks/useListGridConfig";
 import {
   Box,
@@ -15,13 +16,12 @@ import {
   useDisclosure,
   useColorMode,
 } from "@chakra-ui/react";
-import { useTheme } from "../../../context/ThemeContext";
 import { FiPlus } from "react-icons/fi";
 import { ModalHabit, ModalArea } from "../../../routes/index";
 import * as LuIcons from "react-icons/lu";
 import "react-datepicker/dist/react-datepicker.css";
 
-const ColumnHeader = ({ title, page }) => {
+const ColumnHeader = ({ title, page, onModalCloseAndRefresh }) => {
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const navigate = useNavigate();
@@ -32,6 +32,8 @@ const ColumnHeader = ({ title, page }) => {
     handleOrderChange,
     handleLayoutChange,
   } = useListGridConfig();
+
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const handleChangeOrder = (value) => {
     handleOrderChange(value);
@@ -49,7 +51,12 @@ const ColumnHeader = ({ title, page }) => {
     });
   };
 
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const handleModalClose = (shouldRefresh) => {
+    onClose();
+    if (shouldRefresh && onModalCloseAndRefresh) {
+      onModalCloseAndRefresh();
+    }
+  };
 
   const handleAddButtonClick = () => {
     onOpen();
@@ -63,10 +70,11 @@ const ColumnHeader = ({ title, page }) => {
       minH="7vh"
       borderBottom="2px solid var(--chakra-colors-chakra-border-color)"
       userSelect="none"
+      bg={colorMode === "light" ? "gray.100" : "gray.900"}
       zIndex={999}
     >
       <Flex alignItems="center" justifyContent="space-between">
-        <Text as="h2" fontSize="lg" fontWeight="600">
+        <Text as="h2" fontSize="lg" fontWeight={600}>
           {title}
         </Text>
         <HStack spacing={2}>
@@ -89,17 +97,17 @@ const ColumnHeader = ({ title, page }) => {
             <MenuList
               borderRadius={themeOptions.borderRadius}
               bg={
-                colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"
+                colorMode === "light" ? "gray.100" : "gray.900"
               }
             >
-              <MenuOptionGroup defaultValue="grid" type="radio">
+              <MenuOptionGroup defaultValue="grid" type="radio" value={viewType}>
                 <MenuItemOption
                   value="grid"
                   onClick={() => handleChangeLayout("grid")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -115,8 +123,8 @@ const ColumnHeader = ({ title, page }) => {
                   onClick={() => handleChangeLayout("list")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -156,17 +164,17 @@ const ColumnHeader = ({ title, page }) => {
             <MenuList
               borderRadius={themeOptions.borderRadius}
               bg={
-                colorMode === "light" ? "rgb(245, 245, 245)" : "rgb(23, 23, 23)"
+                colorMode === "light" ? "gray.100" : "gray.900"
               }
             >
-              <MenuOptionGroup defaultValue="asc" type="radio">
+              <MenuOptionGroup defaultValue="asc" type="radio" value={selectedOrder}>
                 <MenuItemOption
                   value="asc"
                   onClick={() => handleChangeOrder("asc")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -182,8 +190,8 @@ const ColumnHeader = ({ title, page }) => {
                   onClick={() => handleChangeOrder("desc")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -199,8 +207,8 @@ const ColumnHeader = ({ title, page }) => {
                   onClick={() => handleChangeOrder("last-creation")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -216,8 +224,8 @@ const ColumnHeader = ({ title, page }) => {
                   onClick={() => handleChangeOrder("new-creation")}
                   bg={
                     colorMode === "light"
-                      ? "rgb(245, 245, 245)"
-                      : "rgb(23, 23, 23)"
+                      ? "gray.100"
+                      : "gray.900"
                   }
                   _hover={{
                     bg:
@@ -243,7 +251,7 @@ const ColumnHeader = ({ title, page }) => {
               >
                 Añadir áreas
               </Button>
-              <ModalArea isOpen={isOpen} onClose={onClose} />
+              <ModalArea isOpen={isOpen} onClose={handleModalClose} />
             </>
           ) : (
             <>
@@ -256,7 +264,7 @@ const ColumnHeader = ({ title, page }) => {
               >
                 Añadir hábitos
               </Button>
-              <ModalHabit isOpen={isOpen} onClose={onClose} />
+              <ModalHabit isOpen={isOpen} onClose={handleModalClose} />
             </>
           )}
         </HStack>

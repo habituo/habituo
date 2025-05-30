@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
@@ -13,7 +13,6 @@ export const ThemeProvider = ({ children }) => {
 
   const [themeOptions, setThemeOptions] = useState(defaultTheme);
 
-  // Load theme from localStorage after mounting (avoids SSR issues)
   useEffect(() => {
     const savedTheme = localStorage.getItem("themeOptions");
     if (savedTheme) {
@@ -21,7 +20,6 @@ export const ThemeProvider = ({ children }) => {
     }
   }, []);
 
-  // Update theme and persist in localStorage
   const updateTheme = (newThemeOptions) => {
     const updatedTheme = {
       ...themeOptions,
@@ -31,7 +29,6 @@ export const ThemeProvider = ({ children }) => {
     localStorage.setItem("themeOptions", JSON.stringify(updatedTheme));
   };
 
-  // Reset to default theme
   const resetTheme = () => {
     setThemeOptions(defaultTheme);
     localStorage.removeItem("themeOptions");

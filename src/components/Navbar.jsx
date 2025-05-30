@@ -1,6 +1,7 @@
-import React from "react";
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import logo from "../assets/images/habituo-logo.svg";
-import { useAuth } from "../context/AuthContext";
+import { useAuthUser } from "../context/AuthUserContext";
 import { useTheme } from "../context/ThemeContext";
 import { UserProfileSection } from "../routes/index";
 import {
@@ -10,31 +11,56 @@ import {
   Image,
   HStack,
   IconButton,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
   Button,
   Drawer,
   DrawerOverlay,
   DrawerContent,
   DrawerCloseButton,
-  DrawerHeader,
   DrawerBody,
-  useDisclosure,
   Stack,
   VStack,
+  useDisclosure,
+  useColorModeValue,
 } from "@chakra-ui/react";
-import * as LuIcons from "react-icons/lu";
+import { LuMenu } from "react-icons/lu";
 
 const Navbar = () => {
-  const { user } = useAuth();
+  const { user } = useAuthUser();
   const { themeOptions } = useTheme();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const navigate = useNavigate();
+  const bgColor = useColorModeValue("white", "gray.800");
+  const linkHoverColor = themeOptions.focusColor || "#ff8e3c";
 
-  const handleClick = () => {
+  const handleDrawerOpen = useCallback(() => {
     onOpen();
-  };
+  }, [onOpen]);
+
+  const handleNavigate = useCallback(
+    (path) => {
+      navigate(path);
+      onClose();
+    },
+    [navigate, onClose]
+  );
+
+  const NavLink = ({ children, to }) => (
+    <Link
+      href={to}
+      fontSize={{ base: "xl", md: "lg" }}
+      fontWeight={400}
+      _hover={{ color: linkHoverColor, textDecoration: "none" }}
+      py={{ base: 2, md: 0 }}
+      onClick={(e) => {
+        if (to.startsWith("/") || to.startsWith("#")) {
+          e.preventDefault();
+          handleNavigate(to);
+        }
+      }}
+    >
+      {children}
+    </Link>
+  );
 
   return (
     <>
@@ -44,8 +70,9 @@ const Navbar = () => {
         position="sticky"
         top={0}
         zIndex={10}
-        borderBottomWidth={1}
-        bg="#ffffff"
+        borderColor={useColorModeValue("gray.200", "gray.700")}
+        bg={bgColor}
+        boxShadow="sm"
       >
         <Flex
           alignItems="center"
@@ -54,87 +81,50 @@ const Navbar = () => {
           mx="auto"
         >
           <Box>
-            <Link href="/">
-              <Image src={logo} alt="Logo" w="145px" objectFit="contain" />
+            <Link href="/" aria-label="Volver a la página de inicio de Habituo">
+              <Image
+                src={logo}
+                alt="Logotipo de Habituo App"
+                w={{ base: "120px", md: "145px" }}
+                objectFit="contain"
+              />
             </Link>
           </Box>
-
           <HStack as="nav" spacing={6} display={{ base: "none", md: "flex" }}>
-            <Link
-              href="/dashboard"
-              fontSize="lg"
-              fontWeight={400}
-              _hover={{ color: "#ff8e3c" }}
-            >
-              Tablero
-            </Link>
-            <Link
-              href="/dashboard"
-              fontSize="lg"
-              fontWeight={400}
-              _hover={{ color: "#ff8e3c" }}
-            >
-              Documentación
-            </Link>
-            <Link
-              href="/dashboard"
-              fontSize="lg"
-              fontWeight={400}
-              _hover={{ color: "#ff8e3c" }}
-            >
-              Acerca de
-            </Link>
-            <Link
-              href="/dashboard"
-              fontSize="lg"
-              fontWeight={400}
-              _hover={{ color: "#ff8e3c" }}
-            >
-              Contacto
-            </Link>
+            <NavLink to="/dashboard">Tablero</NavLink>
+            <NavLink to="/documentation">Documentación</NavLink>
+            <NavLink to="/about">Acerca de</NavLink>
+            <NavLink to="/contact">Contacto</NavLink>
           </HStack>
-
           <Flex alignItems="center" gap={2}>
-            <HStack spacing={0}>
-              <Box display={{ base: "block", lg: "none" }}>
-                <Button onClick={() => handleClick()} key="full" m={4}>
-                  Open Drawer
-                </Button>
-                <Menu>
-                  {({ isOpen }) => (
-                    <>
-                      <MenuButton
-                        as={IconButton}
-                        aria-label="Menu"
-                        icon={isOpen ? <LuIcons.LuX /> : <LuIcons.LuMenu />}
-                        bg="transparent"
-                        border="none"
-                        borderRadius="3xl"
-                        fontSize="xl"
-                        variant="outline"
-                        size="sm"
-                      />
-                      <MenuList borderRadius="3xl">
-                        <MenuItem>Inicio</MenuItem>
-                        <MenuItem>Tablero</MenuItem>
-                      </MenuList>
-                    </>
-                  )}
-                </Menu>
-              </Box>
-            </HStack>
+            <Box display={{ base: "block", md: "none" }}>
+              <IconButton
+                aria-label="Abrir menú de navegación"
+                icon={<LuMenu />}
+                onClick={handleDrawerOpen}
+                bg="transparent"
+                border="none"
+                borderRadius={themeOptions.borderRadius}
+                fontSize="xl"
+                variant="ghost"
+                size="md"
+                _focusVisible="none"
+              />
+            </Box>
 
             {user ? (
               <UserProfileSection />
             ) : (
-              <HStack display={{ base: "none", lg: "flex" }}>
+              <HStack spacing={3} display={{ base: "none", md: "flex" }}>
                 <Button
                   px={5}
                   py={4}
-                  size="xl"
+                  size="md"
                   variant="outline"
-                  colorScheme="orange"
-                  onClick={() => (window.location.href = "/register")}
+                  colorScheme={
+                    themeOptions.focusColor.replace(".500", "") || "orange"
+                  }
+                  onClick={() => navigate("/register")}
                   borderRadius={themeOptions.borderRadius}
                   _focusVisible="none"
                 >
@@ -143,10 +133,12 @@ const Navbar = () => {
                 <Button
                   px={5}
                   py={4}
-                  size="xl"
+                  size="md"
                   variant="solid"
-                  colorScheme="orange"
-                  onClick={() => (window.location.href = "/login")}
+                  colorScheme={
+                    themeOptions.focusColor.replace(".500", "") || "orange"
+                  }
+                  onClick={() => navigate("/login")}
                   borderRadius={themeOptions.borderRadius}
                   _focusVisible="none"
                 >
@@ -160,20 +152,80 @@ const Navbar = () => {
 
       <Drawer onClose={onClose} isOpen={isOpen} size="full">
         <DrawerOverlay />
-        <DrawerContent>
-          <DrawerCloseButton />
+        <DrawerContent bg={bgColor} borderRadius="0">
+          <DrawerCloseButton
+            top={4}
+            right={4}
+            fontSize="xl"
+            borderRadius={themeOptions.borderRadius}
+            _focusVisible="none"
+          />
           <DrawerBody p={4}>
-            <VStack h="100%" pt={6} alignItems="center" justifyContent="center" gap={12}>
-              <Box>
-                <Link href="/">
-                  <Image src={logo} alt="Logotipo de Habituo App" w="200px" objectFit="contain" />
+            <VStack
+              h="100%"
+              pt={6}
+              alignItems="center"
+              justifyContent="center"
+              gap={8}
+            >
+              <Box mb={8}>
+                <Link
+                  href="/"
+                  onClick={() => onClose()}
+                  aria-label="Volver a la página de inicio de Habituo"
+                >
+                  <Image
+                    src={logo}
+                    alt="Logotipo de Habituo App"
+                    w="180px"
+                    objectFit="contain"
+                  />
                 </Link>
               </Box>
-              <Stack spacing={6} fontSize="2xl" textAlign="center">
-                <Link href="/dashboard" _hover={{color: "#ff8e3c"}}>Tablero</Link>
-                <Link href="/dashboard" _hover={{color: "#ff8e3c"}}>Documentación</Link>
-                <Link href="#about-us" _hover={{color: "#ff8e3c"}}>Acerca de</Link>
-                <Link href="#contact" _hover={{color: "#ff8e3c"}}>Contacto</Link>
+              <Stack
+                spacing={6}
+                fontSize="2xl"
+                textAlign="center"
+                direction="column"
+              >
+                <NavLink to="/dashboard">Tablero</NavLink>
+                <NavLink to="/documentation">Documentación</NavLink>
+                <NavLink to="/about">Acerca de</NavLink>
+                <NavLink to="/contact">Contacto</NavLink>
+
+                {!user && (
+                  <>
+                    <Button
+                      mt={4}
+                      px={5}
+                      py={4}
+                      size="lg"
+                      variant="outline"
+                      colorScheme={
+                        themeOptions.focusColor.replace(".500", "") || "orange"
+                      }
+                      onClick={() => handleNavigate("/register")}
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                    >
+                      Crear una cuenta
+                    </Button>
+                    <Button
+                      px={5}
+                      py={4}
+                      size="lg"
+                      variant="solid"
+                      colorScheme={
+                        themeOptions.focusColor.replace(".500", "") || "orange"
+                      }
+                      onClick={() => handleNavigate("/login")}
+                      borderRadius={themeOptions.borderRadius}
+                      _focusVisible="none"
+                    >
+                      Iniciar sesión
+                    </Button>
+                  </>
+                )}
               </Stack>
             </VStack>
           </DrawerBody>
