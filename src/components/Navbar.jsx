@@ -90,13 +90,13 @@ const Navbar = () => {
               />
             </Link>
           </Box>
-          <HStack as="nav" spacing={6} display={{ base: "none", md: "flex" }}>
+          <HStack as="nav" spacing={6} display={{ base: "none", md: "flex" }} fontFamily={themeOptions.fontFamily}>
             <NavLink to="/dashboard">Tablero</NavLink>
             <NavLink to="/documentation">Documentación</NavLink>
             <NavLink to="/about">Acerca de</NavLink>
             <NavLink to="/contact">Contacto</NavLink>
           </HStack>
-          <Flex alignItems="center" gap={2}>
+          <Flex alignItems="center" gap={2} _focusVisible="none">
             <Box display={{ base: "block", md: "none" }}>
               <IconButton
                 aria-label="Abrir menú de navegación"

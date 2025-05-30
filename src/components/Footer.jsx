@@ -7,7 +7,6 @@ import {
   Grid,
   Text,
   Link,
-  Divider,
 } from "@chakra-ui/react";
 import { useTheme } from "../context/ThemeContext";
 
@@ -34,7 +33,7 @@ const Footer = () => {
               objectFit="contain"
             />
           </Link>
-          <Text fontSize="sm" color="gray.500" role="contentinfo">
+          <Text fontSize="sm" color="gray.500" role="contentinfo" fontFamily={themeOptions.fontFamily}>
             ©{new Date().getFullYear()} Habituo App. Todos los derechos reservados.
           </Text>
         </VStack>
@@ -47,6 +46,7 @@ const Footer = () => {
           gap={{ base: 8, md: 10 }}
           w="full"
           maxW={{ base: "300px", sm: "600px", md: "600px" }}
+          fontFamily={themeOptions.fontFamily}
         >
           <VStack align={{ base: "center", md: "flex-start" }} spacing={3}>
             <Text fontSize="md" fontWeight={600} mb={2}>
@@ -89,7 +89,6 @@ const Footer = () => {
             </Link>
             <Link
               href="/"
-              target="_blank"
               rel="noopener noreferrer"
               _hover={{ color: `${themeOptions.focusColor}.500` }}
               aria-label="Ponerse en contacto con Habituo"
@@ -97,7 +96,7 @@ const Footer = () => {
               Contacto
             </Link>
             <Link
-              href="/"
+              href="https://habituo-status.betteruptime.com/"
               target="_blank"
               rel="noopener noreferrer"
               _hover={{ color: `${themeOptions.focusColor}.500` }}
@@ -111,18 +110,18 @@ const Footer = () => {
               Legal
             </Text>
             <Link
-              href="/privacy-policy"
+              href="/policy"
               _hover={{ color: `${themeOptions.focusColor}.500` }}
               aria-label="Ver Política de privacidad"
             >
               Política de privacidad
             </Link>
             <Link
-              href="/terms-of-service"
+              href="/terms"
               _hover={{ color: `${themeOptions.focusColor}.500` }}
-              aria-label="Ver Condiciones de servicio"
+              aria-label="Ver Términos de Uso"
             >
-              Condiciones de servicio
+              Términos de uso
             </Link>
           </VStack>
         </Grid>

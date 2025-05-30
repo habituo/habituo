@@ -26,3 +26,7 @@ export { default as LeftColumn } from "../pages/dashboard/sections/LeftColumn";
 export { default as ModalArea } from "../components/ModalArea";
 export { default as ModalHabit } from "../components/ModalHabit";
 export { default as VerifyEmailButton } from "../components/VerifyEmailButton";
+export { default as LegalContent} from "../pages/policies/LegalContent";
+export { default as PrivacyPolicy} from "../pages/policies/content/PrivacyPolicy";
+export { default as LegalTerms} from "../pages/policies/content/LegalTerms";
+export { default as CookiesBanner} from "../pages/policies/CookiesBanner";

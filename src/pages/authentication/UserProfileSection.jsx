@@ -119,26 +119,22 @@ const UserProfileSection = () => {
 
   return (
     <Box>
-      <Popover placement="bottom-end">
-        <PopoverTrigger>
+      <Popover placement="bottom-end" _focusVisible="none">
+        <PopoverTrigger _focusVisible="none">
           <Avatar
             src={displayAvatar}
             name={displayName}
             cursor="pointer"
             size="sm"
             opacity={isFetchingProfile ? 0.7 : 1}
-            border={
-              isFetchingProfile
-                ? `2px solid ${themeOptions.focusColor}`
-                : "none"
-            }
+            _focusVisible="none"
           >
             {isFetchingProfile && (
               <Spinner size="xs" color={themeOptions.focusColor} />
             )}
           </Avatar>
         </PopoverTrigger>
-        <Portal>
+        <Portal _focusVisible="none">
           <PopoverContent
             w="auto"
             borderRadius={themeOptions.borderRadius}
@@ -146,7 +142,7 @@ const UserProfileSection = () => {
             _focusVisible="none"
           >
             <PopoverArrow />
-            <PopoverBody userSelect="none">
+            <PopoverBody userSelect="none" _focusVisible="none">
               <VStack spacing={4} align="end">
                 <Flex alignItems="center" justifyContent="flex-start" gap={3}>
                   <Avatar src={displayAvatar} name={displayName} size="md">
@@ -173,6 +169,7 @@ const UserProfileSection = () => {
                   onClick={handleLogout}
                   isLoading={loading}
                   loadingText="Cerrando..."
+                  _focusVisible="none"
                 >
                   Cerrar sesión
                 </Button>

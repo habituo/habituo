@@ -16,7 +16,7 @@ import {
   AccordionItem,
   Accordion,
 } from "@chakra-ui/react";
-import { Navbar, Footer } from "../routes/index";
+import { Navbar, Footer, CookiesBanner } from "../routes/index";
 import dataAnalysis from "../assets/images/illustrations/data-analysis.svg";
 import customDashboard from "../assets/images/illustrations/custom-dashboard.svg";
 import areasSection from "../assets/images/areas.svg";
@@ -54,6 +54,7 @@ const FeatureCard = ({ title, description, children, ...rest }) => {
         fontSize={{ base: "xl", sm: "2xl", lg: "3xl" }}
         fontWeight={600}
         color={colorMode === "light" ? "black" : "white"}
+        fontFamily={themeOptions.fontFamily}
       >
         {title}
       </Heading>
@@ -63,6 +64,7 @@ const FeatureCard = ({ title, description, children, ...rest }) => {
         fontSize={{ base: "md", sm: "lg", lg: "xl" }}
         fontWeight={400}
         color={isLight ? "gray.600" : "gray.400"}
+        fontFamily={themeOptions.fontFamily}
       >
         {description}
       </Text>
@@ -122,6 +124,7 @@ const Home = () => {
             lineHeight={{ base: "1.1", md: "1.1", lg: "1.1" }}
             textAlign="center"
             color={colorMode === "light" ? "black" : "white"}
+            fontFamily={themeOptions.fontFamily}
           >
             Deja de soñar, empieza a{" "}
             <Text as="span" color={themeOptions.focusColor}>
@@ -134,6 +137,7 @@ const Home = () => {
             textAlign="center"
             maxW={{ base: "90%", md: "600px", lg: "700px" }}
             color={isLight ? "gray.600" : "gray.300"}
+            fontFamily={themeOptions.fontFamily}
           >
             Tu plataforma para hábitos que te impulsan al éxito. Construye tu
             mejor versión con{" "}
@@ -148,6 +152,7 @@ const Home = () => {
             p={{ base: 6, lg: 8 }}
             fontSize={{ base: "lg", lg: "xl" }}
             variant="solid"
+            fontFamily={themeOptions.fontFamily}
             colorScheme={themeOptions.focusColor}
             fontWeight={600}
             borderRadius={themeOptions.borderRadius}
@@ -187,6 +192,7 @@ const Home = () => {
               fontWeight={600}
               lineHeight="shorter"
               color={isLight ? "black" : "white"}
+              fontFamily={themeOptions.fontFamily}
             >
               El mejor tracker de hábitos para alcanzar tus metas
             </Heading>
@@ -195,6 +201,7 @@ const Home = () => {
               fontWeight={400}
               lineHeight="tall"
               color={isLight ? "gray.600" : "gray.300"}
+              fontFamily={themeOptions.fontFamily}
             >
               Convierte tus objetivos en hábitos duraderos. Con{" "}
               <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
@@ -246,6 +253,7 @@ const Home = () => {
               fontWeight={600}
               lineHeight="shorter"
               color={isLight ? "black" : "white"}
+              fontFamily={themeOptions.fontFamily}
             >
               Un dashboard a tu estilo
             </Heading>
@@ -254,6 +262,7 @@ const Home = () => {
               fontWeight={400}
               lineHeight="tall"
               color={isLight ? "gray.600" : "gray.300"}
+              fontFamily={themeOptions.fontFamily}
             >
               Tu dashboard es el centro de tu progreso. Personaliza la vista
               para que te resulte intuitiva y eficiente, dándote el control
@@ -284,6 +293,7 @@ const Home = () => {
               lineHeight="shorter"
               textAlign="center"
               color={isLight ? "black" : "white"}
+              fontFamily={themeOptions.fontFamily}
             >
               Mantente activo con tus progresos
             </Heading>
@@ -293,6 +303,7 @@ const Home = () => {
               lineHeight="tall"
               textAlign="center"
               color={isLight ? "gray.600" : "gray.300"}
+              fontFamily={themeOptions.fontFamily}
             >
               La ciencia ha demostrado que observar cómo avanzas aumenta
               considerablemente tus posibilidades de crear y mantener costumbres
@@ -449,6 +460,7 @@ const Home = () => {
               fontWeight={600}
               lineHeight="shorter"
               color={isLight ? "black" : "white"}
+              fontFamily={themeOptions.fontFamily}
             >
               Preguntas frecuentes
             </Heading>
@@ -457,6 +469,7 @@ const Home = () => {
               fontWeight={400}
               lineHeight="tall"
               color={isLight ? "gray.600" : "gray.300"}
+              fontFamily={themeOptions.fontFamily}
             >
               ¿Tienes dudas sobre cómo funciona{" "}
               <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
@@ -477,23 +490,22 @@ const Home = () => {
                 <AccordionItem
                   key={index}
                   bg={isLight ? "white" : "black"}
-                  borderColor={isLight ? "gray.200" : "gray.600"}
-                  borderWidth="1px"
                   borderRadius={themeOptions.borderRadius}
                   mb={3}
-                  boxShadow="sm"
-                  _hover={{ boxShadow: "md" }}
                 >
                   <h2>
                     <AccordionButton
                       _expanded={{
-                        bg: "black",
-                        color: "white",
+                        bg: isLight ? "black" : "white",
+                        color: isLight ? "white" : "black",
                       }}
                       py={4}
                       px={5}
                       borderRadius={themeOptions.borderRadius}
-                      _hover={{ bg: "gray.300" }}
+                      _hover={{
+                        bg: isLight ? "black" : "white",
+                        color: isLight ? "white" : "black",
+                      }}
                     >
                       <Box
                         as="span"
@@ -501,6 +513,7 @@ const Home = () => {
                         textAlign="left"
                         fontSize={{ base: "md", md: "lg" }}
                         fontWeight={600}
+                        fontFamily={themeOptions.fontFamily}
                       >
                         {item.question}
                       </Box>
@@ -513,6 +526,7 @@ const Home = () => {
                     fontSize={{ base: "sm", md: "md" }}
                     color={isLight ? "gray.700" : "gray.300"}
                     lineHeight="tall"
+                    fontFamily={themeOptions.fontFamily}
                   >
                     {item.answer}
                   </AccordionPanel>
@@ -524,6 +538,7 @@ const Home = () => {
       </Container>
 
       <Footer />
+      <CookiesBanner />
     </>
   );
 };
