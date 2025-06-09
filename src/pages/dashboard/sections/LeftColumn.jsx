@@ -595,7 +595,7 @@ const LeftColumn = () => {
         userSelect="none"
         color={colorMode === "light" ? "gray.400" : "#ffffff50"}
       >
-        v0.0.1 - Habituo App
+        v0.0.2 - Habituo App
       </Text>
     </VStack>
   );
