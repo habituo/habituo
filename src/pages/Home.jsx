@@ -76,6 +76,7 @@ const Home = () => {
   const { colorMode } = useColorMode();
   const { themeOptions } = useTheme();
   const isLight = colorMode === "light" ? true : false;
+  const textColor = isLight ? `var(--chakra-colors-${themeOptions.focusColor}-500)` : `var(--chakra-colors-${themeOptions.focusColor}-200)`;
 
   const faqItems = [
     {
@@ -127,7 +128,7 @@ const Home = () => {
             fontFamily={themeOptions.fontFamily}
           >
             Deja de soñar, empieza a{" "}
-            <Text as="span" color={themeOptions.focusColor}>
+            <Text as="span" color={textColor}>
               construir
             </Text>
           </Heading>
@@ -204,7 +205,7 @@ const Home = () => {
               fontFamily={themeOptions.fontFamily}
             >
               Convierte tus objetivos en hábitos duraderos. Con{" "}
-              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
+              <Text as="span" fontWeight={600} color={textColor}>
                 Habituo
               </Text>
               , diseña tu rutina ideal, ajusta recordatorios y haz un
@@ -268,7 +269,7 @@ const Home = () => {
               para que te resulte intuitiva y eficiente, dándote el control
               total sobre cómo gestionas tus hábitos diarios. Ya sea con un
               estilo minimalista o con un toque de color vibrante,{" "}
-              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
+              <Text as="span" fontWeight={600} color={textColor}>
                 Habituo
               </Text>{" "}
               se adapta a ti.
@@ -472,7 +473,7 @@ const Home = () => {
               fontFamily={themeOptions.fontFamily}
             >
               ¿Tienes dudas sobre cómo funciona{" "}
-              <Text as="span" fontWeight={600} color={themeOptions.focusColor}>
+              <Text as="span" fontWeight={600} color={textColor}>
                 Habituo
               </Text>
               ? Aquí resolvemos las preguntas más comunes para que empieces a
