@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/images/habituo-logo.svg";
+import lightLogo from "../assets/images/light_habituo-logo.svg";
+import darkLogo from "../assets/images/dark_habituo-logo.svg";
 import { useAuthUser } from "../context/AuthUserContext";
 import { useTheme } from "../context/ThemeContext";
 import { UserProfileSection } from "../routes/index";
@@ -21,16 +22,22 @@ import {
   VStack,
   useDisclosure,
   useColorModeValue,
+  useColorMode,
 } from "@chakra-ui/react";
 import { LuMenu } from "react-icons/lu";
 
 const Navbar = () => {
   const { user } = useAuthUser();
   const { themeOptions } = useTheme();
+  const { colorMode } = useColorMode();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
   const bgColor = useColorModeValue("white", "gray.800");
   const linkHoverColor = themeOptions.focusColor || "#ff8e3c";
+  const isLight = colorMode === "light" ? true : false;
+  const textColor = isLight
+    ? `var(--chakra-colors-${themeOptions.focusColor}-500)`
+    : `var(--chakra-colors-${themeOptions.focusColor}-200)`;
 
   const handleDrawerOpen = useCallback(() => {
     onOpen();
@@ -83,18 +90,49 @@ const Navbar = () => {
           <Box>
             <Link href="/" aria-label="Volver a la página de inicio de Habituo">
               <Image
-                src={logo}
+                src={isLight ? lightLogo : darkLogo}
                 alt="Logotipo de Habituo App"
                 w={{ base: "120px", md: "145px" }}
                 objectFit="contain"
               />
             </Link>
           </Box>
-          <HStack as="nav" spacing={6} display={{ base: "none", md: "flex" }} fontFamily={themeOptions.fontFamily}>
-            <NavLink to="/dashboard">Tablero</NavLink>
-            <NavLink to="/documentation">Documentación</NavLink>
-            <NavLink to="/about">Acerca de</NavLink>
-            <NavLink to="/contact">Contacto</NavLink>
+          <HStack
+            as="nav"
+            spacing={6}
+            display={{ base: "none", md: "flex" }}
+            fontFamily={themeOptions.fontFamily}
+          >
+            <Link
+              href="/dashboard"
+              _hover={{ color: textColor }}
+              aria-label="Ir al Tablero"
+            >
+              Tablero
+            </Link>
+            <Link
+              href="https://docs-habituo.vercel.app/"
+              _hover={{ color: textColor }}
+              rel="noopener noreferrer"
+              aria-label="Ver la Documentación"
+              isExternal
+            >
+              Documentación
+            </Link>
+            <Link
+              href="/about"
+              _hover={{ color: textColor }}
+              aria-label="Ir a Acerca de"
+            >
+              Acerca de
+            </Link>
+            <Link
+              href="/contact"
+              _hover={{ color: textColor }}
+              aria-label="Ir a Contacto"
+            >
+              Contacto
+            </Link>
           </HStack>
           <Flex alignItems="center" gap={2} _focusVisible="none">
             <Box display={{ base: "block", md: "none" }}>
@@ -121,9 +159,7 @@ const Navbar = () => {
                   py={4}
                   size="md"
                   variant="outline"
-                  colorScheme={
-                    themeOptions.focusColor.replace(".500", "") || "orange"
-                  }
+                  colorScheme={themeOptions.focusColor}
                   onClick={() => navigate("/register")}
                   borderRadius={themeOptions.borderRadius}
                   _focusVisible="none"
@@ -135,9 +171,7 @@ const Navbar = () => {
                   py={4}
                   size="md"
                   variant="solid"
-                  colorScheme={
-                    themeOptions.focusColor.replace(".500", "") || "orange"
-                  }
+                  colorScheme={themeOptions.focusColor}
                   onClick={() => navigate("/login")}
                   borderRadius={themeOptions.borderRadius}
                   _focusVisible="none"
@@ -175,8 +209,8 @@ const Navbar = () => {
                   aria-label="Volver a la página de inicio de Habituo"
                 >
                   <Image
-                    src={logo}
-                    alt="Logotipo de Habituo App"
+                    src={isLight ? lightLogo : darkLogo}
+                    alt="Logotipo de Habituo - Tu tracker de hábitos"
                     w="180px"
                     objectFit="contain"
                   />
@@ -188,10 +222,36 @@ const Navbar = () => {
                 textAlign="center"
                 direction="column"
               >
-                <NavLink to="/dashboard">Tablero</NavLink>
-                <NavLink to="/documentation">Documentación</NavLink>
-                <NavLink to="/about">Acerca de</NavLink>
-                <NavLink to="/contact">Contacto</NavLink>
+                <Link
+                  href="/dashboard"
+                  _hover={{ color: textColor }}
+                  aria-label="Ir al Tablero"
+                >
+                  Tablero
+                </Link>
+                <Link
+                  href="https://docs-habituo.vercel.app/"
+                  _hover={{ color: textColor }}
+                  rel="noopener noreferrer"
+                  aria-label="Ver la Documentación"
+                  isExternal
+                >
+                  Documentación
+                </Link>
+                <Link
+                  href="/about"
+                  _hover={{ color: textColor }}
+                  aria-label="Ir a Acerca de"
+                >
+                  Acerca de
+                </Link>
+                <Link
+                  href="/contact"
+                  _hover={{ color: textColor }}
+                  aria-label="Ir a Contacto"
+                >
+                  Contacto
+                </Link>
 
                 {!user && (
                   <>
@@ -201,9 +261,7 @@ const Navbar = () => {
                       py={4}
                       size="lg"
                       variant="outline"
-                      colorScheme={
-                        themeOptions.focusColor.replace(".500", "") || "orange"
-                      }
+                      colorScheme={themeOptions.focusColor}
                       onClick={() => handleNavigate("/register")}
                       borderRadius={themeOptions.borderRadius}
                       _focusVisible="none"
@@ -215,9 +273,7 @@ const Navbar = () => {
                       py={4}
                       size="lg"
                       variant="solid"
-                      colorScheme={
-                        themeOptions.focusColor.replace(".500", "") || "orange"
-                      }
+                      colorScheme={themeOptions.focusColor}
                       onClick={() => handleNavigate("/login")}
                       borderRadius={themeOptions.borderRadius}
                       _focusVisible="none"
