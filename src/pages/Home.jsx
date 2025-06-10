@@ -110,6 +110,8 @@ const Home = () => {
     <>
       <Navbar />
 
+      <script src="https://uptime.betterstack.com/widgets/announcement.js" data-id="217510" async="async" type="text/javascript"></script>
+
       <Container
         as="main"
         maxW="7xl"

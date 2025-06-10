@@ -42,13 +42,19 @@ const Footer = () => {
           </Link>
           <Text
             fontSize="sm"
-            color="gray.500"
+            color={isLight ? "gray.500" : "gray.200"}
             role="contentinfo"
             fontFamily={themeOptions.fontFamily}
           >
             ©{new Date().getFullYear()} Habituo App. Todos los derechos
             reservados.
           </Text>
+          <iframe
+            title="Estado actual de los servicios"
+            src="https://habituo-status.betteruptime.com/badge?theme=dark"
+            width="250"
+            height="30"
+            scrolling="no" />
         </VStack>
         <Grid
           templateColumns={{
