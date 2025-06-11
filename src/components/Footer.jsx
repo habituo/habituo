@@ -9,26 +9,35 @@ import {
   Text,
   Link,
   useColorMode,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { useTheme } from "../context/ThemeContext";
 
 const Footer = () => {
   const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
+  const bgColor = useColorModeValue("white", "gray.800");
   const isLight = colorMode === "light" ? true : false;
   const textColor = isLight
     ? `var(--chakra-colors-${themeOptions.focusColor}-500)`
     : `var(--chakra-colors-${themeOptions.focusColor}-200)`;
 
   return (
-    <Box as="footer" pt={{ base: 8, md: 10 }} px={{ base: 4, md: 8 }}>
+    <Box
+      as="footer"
+      py={{ base: 10, md: 12 }}
+      px={{ base: 4, md: 8 }}
+      bg={bgColor}
+      borderTop={2}
+      borderColor={useColorModeValue("gray.200", "gray.700")}
+      boxShadow="sm"
+    >
       <Flex
         direction={{ base: "column", md: "row" }}
         justify={{ base: "center", md: "space-between" }}
         align={{ base: "center", md: "flex-start" }}
         maxW="7xl"
         mx="auto"
-        my={{ base: 8, lg: 10 }}
         textAlign={{ base: "center", md: "left" }}
       >
         <VStack mb={{ base: 10, md: 0 }} alignItems="flex-start" spacing={4}>
@@ -54,7 +63,8 @@ const Footer = () => {
             src="https://habituo-status.betteruptime.com/badge?theme=dark"
             width="250"
             height="30"
-            scrolling="no" />
+            scrolling="no"
+          />
         </VStack>
         <Grid
           templateColumns={{
@@ -72,7 +82,7 @@ const Footer = () => {
               Producto
             </Text>
             <Link
-              href="/about-us"
+              href="/about"
               _hover={{ color: textColor }}
               aria-label="Ir a Acerca de"
             >

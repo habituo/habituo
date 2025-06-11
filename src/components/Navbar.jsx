@@ -33,7 +33,6 @@ const Navbar = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
   const bgColor = useColorModeValue("white", "gray.800");
-  const linkHoverColor = themeOptions.focusColor || "#ff8e3c";
   const isLight = colorMode === "light" ? true : false;
   const textColor = isLight
     ? `var(--chakra-colors-${themeOptions.focusColor}-500)`
@@ -49,24 +48,6 @@ const Navbar = () => {
       onClose();
     },
     [navigate, onClose]
-  );
-
-  const NavLink = ({ children, to }) => (
-    <Link
-      href={to}
-      fontSize={{ base: "xl", md: "lg" }}
-      fontWeight={400}
-      _hover={{ color: linkHoverColor, textDecoration: "none" }}
-      py={{ base: 2, md: 0 }}
-      onClick={(e) => {
-        if (to.startsWith("/") || to.startsWith("#")) {
-          e.preventDefault();
-          handleNavigate(to);
-        }
-      }}
-    >
-      {children}
-    </Link>
   );
 
   return (

@@ -1,4 +1,6 @@
 export { default as Home } from "../pages/Home";
+export { default as Contact } from "../pages/Contact";
+export { default as About } from "../pages/About";
 export { default as Dashboard } from "../pages/dashboard/Dashboard";
 export { default as DashboardHome } from "../pages/dashboard/DashboardHome";
 export { default as AllAreas } from "../pages/dashboard/sections/AllAreas";
