@@ -480,7 +480,8 @@ const HabitPage = ({ habit, allAreas }) => {
     [stats, IconComponent, failedIcon]
   );
 
-  const repeatType = habit.goal.period === "day" ? "días" : "week" ? "semanas" : "meses";
+  const repeatType =
+    habit.goal.period === "day" ? "días" : "week" ? "semanas" : "meses";
 
   if (!habit) {
     return (
@@ -709,10 +710,26 @@ const HabitPage = ({ habit, allAreas }) => {
                         });
                       }
                       .react-calendar__navigation {
-                        display: none;
+                        display: flex;
                         align-items: center;
                         justify-content: center;
-                        gap: 0;
+                        gap: 8px;
+                        margin-bottom: 8px;
+                      }
+                      button.react-calendar__navigation__arrow {
+                        width: 20px;
+                        height: 20px;
+                        border: 1px solid var(--chakra-colors-chakra-border-color);
+                        border-radius: var(--chakra-radii-${
+                          themeOptions.borderRadius
+                        });
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                      }
+                      button.react-calendar__navigation__arrow.react-calendar__navigation__prev2-button,
+                      button.react-calendar__navigation__arrow.react-calendar__navigation__next2-button {
+                        display: none;
                       }
                       .react-calendar__navigation__label {
                         flex-grow: inherit !important;
@@ -940,8 +957,7 @@ const HabitPage = ({ habit, allAreas }) => {
                       ? `El ${habit.repeat.dayOfMonth} de cada més`
                       : habit.repeat.type === "day"
                       ? habit.repeat.days
-                      : `Cada ${habit.repeat.interval} ${repeatType}`
-                    }
+                      : `Cada ${habit.repeat.interval} ${repeatType}`}
                   </Text>
                 </Box>
                 <Box
@@ -969,7 +985,7 @@ const HabitPage = ({ habit, allAreas }) => {
                     Fecha de comienzo
                   </Text>
                   <Text fontSize="xl" fontWeight={600}>
-                      {habit.startDate
+                    {habit.startDate
                       ? `${habit.startDate
                           .toDate()
                           .toLocaleDateString("es-ES", {
