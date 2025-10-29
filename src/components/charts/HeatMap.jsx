@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactApexChart from "react-apexcharts";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../context/ThemeContext/ThemeContext";
 import { getHabitRecordsGroupedByDay } from "../../hooks/database";
 
 const HeatMap = (props) => {
