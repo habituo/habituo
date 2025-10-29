@@ -38,6 +38,12 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
+# Build outputs
+dist/
+build/
+
+# Test coverag
+
 # Dependency directories
 node_modules/
 jspm_packages/
@@ -47,6 +53,9 @@ web_modules/
 
 # TypeScript cache
 *.tsbuildinfo
+
+# SonarQube analysis
+.scannerwork/
 
 # Optional npm cache directory
 .npm

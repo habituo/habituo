@@ -6,7 +6,7 @@
 import ReactDOM from "react-dom/client";
 import { ChakraProvider } from "@chakra-ui/react";
 import App from "./App";
-import { ThemeProvider, useTheme } from "./context/ThemeContext/ThemeContext";
+import { useTheme } from "./context/ThemeContext/ThemeContext";
 import { AuthUserProvider } from "./context/AuthUserContext/AuthUserContext";
 import "./index";
 
@@ -30,6 +30,13 @@ jest.mock("./context/ThemeContext/ThemeContext", () => ({
 jest.mock("./context/AuthUserContext/AuthUserContext", () => ({
     AuthUserProvider: jest.fn(({ children }) => <div data-testid="auth">{children}</div>),
 }));
+jest.mock("@vercel/speed-insights/react", () => ({
+    SpeedInsights: ({ children }) => <div data-testid="speed">{children}</div>,
+}), { virtual: true });
+
+jest.mock("@vercel/analytics/react", () => ({
+    Analytics: ({ children }) => <div data-testid="analytics">{children}</div>,
+}), { virtual: true });
 
 describe("index.js entry point", () => {
     let mockRoot;
@@ -59,14 +66,14 @@ describe("index.js entry point", () => {
     test("uses ThemeProvider, ChakraProvider, and AuthUserProvider hierarchy correctly", () => {
         const { chakraTheme } = useTheme();
 
-        // Render the Root component manually
-        const { ChakraProvider: Chakra, ThemeProvider: Theme, AuthUserProvider: Auth } = require("./context/ThemeContext/ThemeContext");
         expect(typeof chakraTheme).toBe("object");
 
-        // Check mocks were called in correct order (structure presence check)
+        // Check that all providers are defined
+        expect(require("@vercel/analytics/react").Analytics).toBeDefined();
+        expect(require("@vercel/speed-insights/react").SpeedInsights).toBeDefined();
         expect(ChakraProvider).toBeDefined();
-        expect(App).toBeDefined();
         expect(AuthUserProvider).toBeDefined();
+        expect(App).toBeDefined();
     });
 
     test("calls reportWebVitals once", () => {
