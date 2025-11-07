@@ -50,9 +50,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import BarChart from "../../components/charts/BarChart";
 // import HeatMap from "../../components/charts/HeatMap";
-import { EmptyState } from "../../exports";
+import { EmptyState, GoalModal } from "../../exports";
 import { useAuthUser } from "../../context/AuthUserContext/AuthUserContext";
-import GoalModal from "../../components/modals/GoalModal";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../api/firebase/firebase";
 
@@ -802,7 +801,7 @@ const HabitDetailPage = ({ habit, allAreas }) => {
       ? "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg=="
       : "data:image/svg+xml;base64,PHN2ZyBmaWxsPSIjZmZmZmZmIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTkgNi40MSAxNy41OSA1IDEyIDEwLjU5IDYuNDEgNSA1IDYuNDEgMTAuNTkgMTIgNSAxNy41OSA2LjQxIDE5IDEyIDEzLjQxIDE3LjU5IDE5IDE5IDE3LjU5IDEzLjQxIDEyeiIvPjwvc3ZnPg==";
 
-console.log("HABIT: ", habit);
+  console.log("HABIT: ", habit);
 
   const repeatTypeText = habit.repetition
     ? getRepeatType(habit.repetition)
@@ -1243,7 +1242,9 @@ console.log("HABIT: ", habit);
                         }-300);
                       }
                       .habit-failed {
-                        color: ${colorMode === "light" ? "white" : "black"} !important;
+                        color: ${
+                          colorMode === "light" ? "white" : "black"
+                        } !important;
                         user-select: none;
                       }
                       .habit-failed::after {
@@ -1463,7 +1464,10 @@ console.log("HABIT: ", habit);
       )}
       <GoalModal
         isOpen={isQuantityModalOpen}
-        onClose={closeQuantityModal}
+        onClose={() => {
+          closeQuantityModal();
+          setIsSaving(false);
+        }}
         title={`Completar "${
           habitToCompleteQuantified?.name || "Hábito"
         }" para el ${formatHabitDate(clickedDate)}`}

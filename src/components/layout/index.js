@@ -1,9 +1,11 @@
+export { default as AreasList } from "./AreasList/AreasList";
 export { default as CompleteWeek } from "./CompleteWeek/CompleteWeek";
 export { default as EmptyState } from "./EmptyState/EmptyState";
 export { default as Footer } from "./Footer/Footer";
 export { default as FAQSection } from "./FAQSection/FAQSection";
 export { default as FeatureSection } from "./FeatureSection/FeatureSection";
+export { default as HabitsList } from "./HabitsList/HabitsList";
 export { default as HeroSection } from "./HeroSection/HeroSection";
-export { default as LeftColumnMenu } from "./LeftColumnMenu";
-export { default as PersonalizationGrid } from "./PersonalizationGrid/PersonalizationGrid";
+export { default as LeftColumnMenu } from "./LeftColumnMenu/LeftColumnMenu";
 export { default as Navbar } from "./Navbar/Navbar";
+export { default as PersonalizationGrid } from "./PersonalizationGrid/PersonalizationGrid";

@@ -73,9 +73,10 @@ const Footer = () => {
           {/** Service status badge iframe */}
           <iframe
             title="Estado actual de los servicios"
-            src="https://habituo-status.betteruptime.com/badge?theme=dark"
+            src="https://habituo-status.betteruptime.com/badge?theme=light"
             width="250"
             height="30"
+            scrolling="no"
           />
         </VStack>
 
@@ -98,7 +99,7 @@ const Footer = () => {
             <Link
               href="/about"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               aria-label="Ir a Acerca de"
             >
@@ -107,7 +108,7 @@ const Footer = () => {
             <Link
               href="/dashboard"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               aria-label="Ir al Tablero"
             >
@@ -116,7 +117,7 @@ const Footer = () => {
             <Text
               color={isLight ? "gray.500" : "gray.200"}
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               aria-label="Ir al Precios"
             >
               Precios
@@ -128,21 +129,18 @@ const Footer = () => {
             <Text fontSize="xl" fontWeight={600} mb={2}>
               Soporte
             </Text>
-            <Link
-              href="https://docs-habituo.vercel.app/"
+            <Text
+              color={isLight ? "gray.500" : "gray.200"}
               fontSize="lg"
-              fontWeight={500}
-              _hover={{ color: "var(--chakra-colors-orange-500)" }}
-              rel="noopener noreferrer"
-              aria-label="Ver la documentación"
-              isExternal
+              fontWeight={400}
+              aria-label="Ir al la Documentación"
             >
               Documentación
-            </Link>
+            </Text>
             <Link
               href="/contact"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               rel="noopener noreferrer"
               aria-label="Ponerse en contacto con Habituo"
@@ -152,7 +150,7 @@ const Footer = () => {
             <Link
               href="https://habituo-status.betteruptime.com/"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               rel="noopener noreferrer"
               aria-label="Ver el estado de los servidores"
@@ -177,20 +175,29 @@ const Footer = () => {
               textAlign="left"
               href="/policy"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               aria-label="Ver Política de privacidad"
             >
-              Política de privacidad
+              Política de Privacidad
             </Link>
             <Link
               href="/terms"
               fontSize="lg"
-              fontWeight={500}
+              fontWeight={400}
               _hover={{ color: "var(--chakra-colors-orange-500)" }}
               aria-label="Ver Términos de Uso"
             >
-              Términos de uso
+              Términos de Uso
+            </Link>
+            <Link
+              href="/terms"
+              fontSize="lg"
+              fontWeight={400}
+              _hover={{ color: "var(--chakra-colors-orange-500)" }}
+              aria-label="Ver Política de Cookies"
+            >
+              Política de Cookies
             </Link>
           </VStack>
         </Grid>

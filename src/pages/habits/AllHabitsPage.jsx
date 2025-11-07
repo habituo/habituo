@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
-import { compareByOrder } from "../../utils/sortingUtils";
+import { compareByOrder } from "../../utils/sortingUtils/sortingUtils";
 import { useAuthUser } from "../../context/AuthUserContext/AuthUserContext";
 import {
   VStack,

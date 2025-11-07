@@ -8,6 +8,7 @@ import {
   Flex,
 } from "@chakra-ui/react";
 import FadeInWhenVisible from "../../animations/FadeInWhenVisible/FadeInWhenVisible";
+import PropTypes from "prop-types";
 
 /**
  * Component that displays the "Complete the Week" section
@@ -120,31 +121,34 @@ const CompleteWeek = ({ isLight = true }) => {
                 "Viernes",
                 "Sábado",
                 "Domingo",
-              ].map((day) => (
-                <Box
-                  key={day}
-                  px={6}
-                  py={2}
-                  fontSize="2xl"
-                  fontWeight={500}
-                  lineHeight="1.4"
-                  bg={
-                    day === "Martes" || day === "Domingo"
-                      ? "var(--chakra-colors-orange-500)"
-                      : isLight
-                      ? "gray.300"
-                      : "gray.700"
-                  }
-                  border={
-                    day === "Martes" || day === "Domingo"
-                      ? "2px solid var(--chakra-colors-orange-500)"
-                      : "2px solid var(--chakra-colors-chakra-border-color)"
-                  }
-                  borderRadius="full"
-                >
-                  {day}
-                </Box>
-              ))}
+              ].map((day) => {
+                const isHighlighted = day === "Martes" || day === "Domingo";
+                const bgColor = isHighlighted
+                  ? "var(--chakra-colors-orange-500)"
+                  : isLight
+                  ? "gray.300"
+                  : "gray.700";
+
+                const borderColor = isHighlighted
+                  ? "var(--chakra-colors-orange-500)"
+                  : "var(--chakra-colors-chakra-border-color)";
+
+                return (
+                  <Box
+                    key={day}
+                    px={6}
+                    py={2}
+                    fontSize="2xl"
+                    fontWeight={500}
+                    lineHeight="1.4"
+                    bg={bgColor}
+                    border={`2px solid ${borderColor}`}
+                    borderRadius="full"
+                  >
+                    {day}
+                  </Box>
+                );
+              })}
             </Flex>
           </GridItem>
 
@@ -182,3 +186,7 @@ const CompleteWeek = ({ isLight = true }) => {
 };
 
 export default CompleteWeek;
+
+CompleteWeek.propTypes = {
+  isLight: PropTypes.bool,
+};
