@@ -1,8 +1,8 @@
 import { db } from "../api/firebase/firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, getDocs, setDoc, serverTimestamp, writeBatch, increment, query, orderBy, Timestamp } from "firebase/firestore";
 import { Text } from "@chakra-ui/react";
-import { getAreasCollectionRef } from "../utils/firestorePaths";
-import { getAreaDocRef } from "../utils/firestorePaths";
+import { getAreasCollectionRef } from "../utils/firestorePaths/firestorePaths";
+import { getAreaDocRef } from "../utils/firestorePaths/firestorePaths";
 
 const HABIT_STATUS = {
     COMPLETED: "completed",

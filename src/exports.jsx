@@ -1,6 +1,7 @@
 export * from "./components/layout";
 export * from "./components/modals";
 export * from "./components/ui";
+export * from "./sections";
 export { default as BarChart } from "./components/charts/BarChart";
 export { default as ColumnHeader } from "./components/dashboard/ColumnHeader";
 export { default as DashboardHeader } from "./components/dashboard/DashboardHeader";
