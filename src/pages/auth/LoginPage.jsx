@@ -140,7 +140,7 @@ const LoginPage = () => {
     return (
       <Container
         as="main"
-        fontFamily={themeOptions.fontFamily}
+        fontFamily="Outfit"
         display="flex"
         flexDirection="column"
         justifyContent="center"
@@ -150,7 +150,7 @@ const LoginPage = () => {
       >
         <Spinner
           emptyColor="gray.200"
-          color={themeOptions.focusColor}
+          color="var(--chakra-colors-orange-500)"
           size="lg"
         />
         <Text size="lg">Cargando...</Text>
@@ -161,7 +161,7 @@ const LoginPage = () => {
   return (
     <Container
       as="main"
-      fontFamily={themeOptions.fontFamily}
+      fontFamily="Outfit"
       display="flex"
       justifyContent="center"
       alignItems="center"
@@ -177,8 +177,7 @@ const LoginPage = () => {
         gap={6}
         w={{ base: "100%", sm: "400px", md: "450px" }}
         p={6}
-        borderRadius={themeOptions.borderRadius}
-        boxShadow="md"
+        borderRadius="2xl"
         bg={colorMode === "light" ? "white" : "black"}
       >
         <Link href="/">
@@ -205,9 +204,8 @@ const LoginPage = () => {
             type="email"
             name="email"
             size="lg"
-            variant="outline"
             value={credentials.email}
-            borderRadius={themeOptions.borderRadius}
+            borderRadius="xl"
             onChange={handleChange}
             _focusVisible={{}}
           />
@@ -220,17 +218,16 @@ const LoginPage = () => {
               id="password-login"
               type={showPassword ? "text" : "password"}
               name="password"
-              variant="outline"
               value={credentials.password}
               onChange={handleChange}
-              borderRadius={themeOptions.borderRadius}
+              borderRadius="xl"
               _focusVisible={{}}
             />
             <InputRightElement width="3rem">
               <IconButton
                 h="2.5rem"
                 size="md"
-                borderRadius={themeOptions.borderRadius}
+                borderRadius="xl"
                 onClick={() => setShowPassword((prev) => !prev)}
                 icon={showPassword ? <LuEyeOff /> : <LuEye />}
                 aria-label={
@@ -245,9 +242,7 @@ const LoginPage = () => {
         </FormControl>
         <HStack justify="space-between" w="100%" mt={2}>
           <Checkbox
-            colorScheme={
-              themeOptions.focusColor.replace(".500", "") || "orange"
-            }
+            colorScheme="orange"
             isChecked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
             _focusVisible={{}}
@@ -256,9 +251,7 @@ const LoginPage = () => {
           </Checkbox>
           <Link
             href="/recover-password"
-            color={
-              `var(--chakra-colors-${themeOptions.focusColor}-500)` || "orange"
-            }
+            color="var(--chakra-colors-orange-500)"
             fontWeight={500}
             _focusVisible={{}}
           >
@@ -267,10 +260,8 @@ const LoginPage = () => {
         </HStack>
         <VStack w="100%" alignItems="stretch" gap={3}>
           <Button
-            colorScheme={
-              themeOptions.focusColor.replace(".500", "") || "orange"
-            }
-            borderRadius={themeOptions.borderRadius}
+            colorScheme="orange"
+            borderRadius="xl"
             onClick={handleLogin}
             _focusVisible={{}}
             isLoading={isSubmitting}
@@ -282,13 +273,12 @@ const LoginPage = () => {
           </Button>
           <Button
             onClick={handleGoogleLogin}
-            borderRadius={themeOptions.borderRadius}
+            borderRadius="xl"
             leftIcon={<FaGoogle />}
             _focusVisible={{}}
             isLoading={isSubmitting}
             loadingText="Con Google..."
             isDisabled={loading}
-            variant="outline"
             size="lg"
           >
             Iniciar sesión con Google
@@ -299,9 +289,7 @@ const LoginPage = () => {
           <Link
             href="/register"
             fontWeight={600}
-            color={
-              `var(--chakra-colors-${themeOptions.focusColor}-500)` || "orange"
-            }
+            color="var(--chakra-colors-orange-500)"
             _focusVisible={{}}
           >
             Regístrate aquí

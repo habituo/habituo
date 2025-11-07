@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams, useOutletContext } from "react-router-dom";
 import { useAuthUser } from "../../context/AuthUserContext/AuthUserContext";
-import { compareByOrder } from "../../utils/sortingUtils";
+import { compareByOrder } from "../../utils/sortingUtils/sortingUtils";
 import { deleteArea, getAllHabitsByArea } from "../../hooks/useDatabase";
 import {
   ColumnHeader,

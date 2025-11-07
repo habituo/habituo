@@ -59,7 +59,7 @@ const BarChart = (props) => {
           times:
             typeof record.times === "number"
               ? record.times
-              : parseInt(record.times || "0", 10),
+              : Number.parseInt(record.times || "0", 10),
           status: record.status || "unknown",
         }));
         setRecords(formattedRecords);

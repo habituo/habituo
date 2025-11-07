@@ -15,7 +15,7 @@ jest.mock("firebase/app", () => ({
 }));
 
 jest.mock("firebase/auth", () => {
-    class MockGoogleAuthProvider { }
+    const MockGoogleAuthProvider = jest.fn();
     return {
         getAuth: jest.fn(() => "mockAuth"),
         GoogleAuthProvider: MockGoogleAuthProvider,

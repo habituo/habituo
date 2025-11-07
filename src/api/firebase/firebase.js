@@ -3,17 +3,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-import { firebaseConfig as devConfig } from "../../config/firebaseConfig.dev.js";
-import { firebaseConfig as prodConfig } from "../../config/firebaseConfig.prod.js";
-
-/**
- * Determines whether the app is running in development mode.
- * Uses `REACT_APP_ENV` to dynamically import the corresponding config.
- *
- * @constant {boolean} isDev
- */
-const isDev = process.env.REACT_APP_ENV === "development";
-const firebaseConfig = isDev ? devConfig : prodConfig;
+import { firebaseConfig } from "../../config/firebaseConfig.js"; 
 
 /**
  * Initializes Firebase if no instance exists, otherwise retrieves

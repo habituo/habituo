@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useTheme } from "../../context/ThemeContext/ThemeContext";
 import { useAuthUser } from "../../context/AuthUserContext/AuthUserContext";
 import { useAuth } from "../../hooks/useAuth";
 import { createDefaultAreas } from "../../hooks/useDatabase";
@@ -33,7 +32,6 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../api/firebase/firebase";
 
 const RegisterPage = () => {
-  const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const { user, loading: authLoading, authError } = useAuthUser();
   const { registerEmailPassword, loginWithGoogle } = useAuth();
@@ -172,7 +170,7 @@ const RegisterPage = () => {
     return (
       <Container
         as="main"
-        fontFamily={themeOptions.fontFamily}
+        fontFamily="Outfit"
         display="flex"
         flexDirection="column"
         justifyContent="center"
@@ -182,9 +180,7 @@ const RegisterPage = () => {
       >
         <Spinner
           emptyColor="gray.200"
-          color={
-            `var(--chakra-colors-${themeOptions.focusColor}-500)` || "orange"
-          }
+          color="var(--chakra-colors-orange-500)"
           size="lg"
         />
         <Text size="lg">Cargando...</Text>
@@ -195,7 +191,7 @@ const RegisterPage = () => {
   return (
     <Container
       as="main"
-      fontFamily={themeOptions.fontFamily}
+      fontFamily="Outfit"
       display="flex"
       justifyContent="center"
       alignItems="center"
@@ -211,8 +207,7 @@ const RegisterPage = () => {
         gap={6}
         w={{ base: "100%", sm: "400px", md: "450px" }}
         p={6}
-        borderRadius={themeOptions.borderRadius}
-        boxShadow="md"
+        borderRadius="2xl"
         bg={colorMode === "light" ? "white" : "black"}
       >
         <Link href="/" _focusVisible={{}}>
@@ -226,7 +221,7 @@ const RegisterPage = () => {
         <Box textAlign="center">
           <Text
             as="h1"
-            fontFamily={themeOptions.fontFamily}
+            fontFamily="Outfit"
             fontSize={{ base: "xl", md: "2xl" }}
             fontWeight={600}
             mb={1}
@@ -244,9 +239,8 @@ const RegisterPage = () => {
               type="text"
               name="name"
               size="lg"
-              variant="outline"
               value={formData.name}
-              borderRadius={themeOptions.borderRadius}
+              borderRadius="xl"
               onChange={handleInputChange}
               _focusVisible={{}}
             />
@@ -258,9 +252,8 @@ const RegisterPage = () => {
               type="email"
               name="email"
               size="lg"
-              variant="outline"
               value={formData.email}
-              borderRadius={themeOptions.borderRadius}
+              borderRadius="xl"
               onChange={handleInputChange}
               _focusVisible={{}}
             />
@@ -274,16 +267,15 @@ const RegisterPage = () => {
                 name="password"
                 value={formData.password}
                 size="lg"
-                variant="outline"
                 onChange={handleInputChange}
-                borderRadius={themeOptions.borderRadius}
+                borderRadius="xl"
                 _focusVisible={{}}
               />
               <InputRightElement width="3rem">
                 <IconButton
                   h="2.5rem"
                   size="md"
-                  borderRadius={themeOptions.borderRadius}
+                  borderRadius="xl"
                   onClick={togglePasswordVisibility}
                   icon={showPassword ? <LuEyeOff /> : <LuEye />}
                   aria-label={
@@ -304,16 +296,15 @@ const RegisterPage = () => {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 size="lg"
-                variant="outline"
                 onChange={handleInputChange}
-                borderRadius={themeOptions.borderRadius}
+                borderRadius="xl"
                 _focusVisible={{}}
               />
               <InputRightElement width="3rem">
                 <IconButton
                   h="2.5rem"
                   size="md"
-                  borderRadius={themeOptions.borderRadius}
+                  borderRadius="xl"
                   onClick={togglePasswordVisibility}
                   icon={showPassword ? <LuEyeOff /> : <LuEye />}
                   aria-label={
@@ -329,7 +320,7 @@ const RegisterPage = () => {
         </VStack>
         <HStack justify="flex-start" w="100%">
           <Checkbox
-            colorScheme={themeOptions.focusColor}
+            colorScheme="orange"
             isChecked={rememberMe}
             onChange={() => setRememberMe(!rememberMe)}
             _focusVisible={{}}
@@ -339,8 +330,8 @@ const RegisterPage = () => {
         </HStack>
         <VStack w="100%" alignItems="stretch" gap={4}>
           <Button
-            colorScheme={themeOptions.focusColor}
-            borderRadius={themeOptions.borderRadius}
+            colorScheme="orange"
+            borderRadius="xl"
             onClick={handleRegister}
             isLoading={isSubmitting || authLoading}
             loadingText="Registrando..."
@@ -351,7 +342,7 @@ const RegisterPage = () => {
           </Button>
           <Button
             onClick={handleGoogleRegister}
-            borderRadius={themeOptions.borderRadius}
+            borderRadius="xl"
             leftIcon={<FaGoogle />}
             isLoading={isSubmitting || authLoading}
             loadingText="Conectando con Google..."
@@ -366,9 +357,7 @@ const RegisterPage = () => {
           <Link
             href="/login"
             fontWeight={600}
-            color={
-              `var(--chakra-colors-${themeOptions.focusColor}-500)` || "orange"
-            }
+            color="var(--chakra-colors-orange-500)"
             _focusVisible={{}}
           >
             Iniciar sesión

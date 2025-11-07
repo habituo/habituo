@@ -2,5 +2,5 @@ projectKey=habituo-web
 serverUrl=http://localhost:9000
 serverVersion=25.10.0.114319
 dashboardUrl=http://localhost:9000/dashboard?id=habituo-web
-ceTaskId=10c7473e-41fb-47c3-9c41-979e49c50ed7
-ceTaskUrl=http://localhost:9000/api/ce/task?id=10c7473e-41fb-47c3-9c41-979e49c50ed7
+ceTaskId=713bd356-bc6a-43d2-8d77-182456e7a829
+ceTaskUrl=http://localhost:9000/api/ce/task?id=713bd356-bc6a-43d2-8d77-182456e7a829

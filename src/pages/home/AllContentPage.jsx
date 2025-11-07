@@ -165,52 +165,61 @@ const AllContentPage = () => {
           </Thead>
           <Tbody>
             {allHabits.length > 0 ? (
-              allHabits.map((habit) => (
-                <Tr key={habit.id}>
-                  <Td>{habit.icon}</Td>
-                  <Td>
-                    <Text fontWeight={600} isTruncated maxW="150px">
-                      {habit.name}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Tag
-                      size="sm"
-                      variant="solid"
-                      textTransform="capitalize"
-                      colorScheme={
-                        habit.lastStatus === "completed"
-                          ? "green"
-                          : "failed"
-                          ? "red"
-                          : "gray"
-                      }
-                    >
-                      {habit.lastStatus || "Pendiente"}
-                    </Tag>
-                  </Td>
-                  <Td>
-                    <HStack spacing={1}>
-                      <Text>
-                        {habit.areaIcon}
-                        {habit.areaName}
+              allHabits.map((habit) => {
+                const habitStatusColor = {
+                  in_progress: "yellow",
+                  completed: "green",
+                  failed: "red",
+                  skipped: "teal",
+                  deleted: "gray",
+                };
+                const habitStatus = {
+                  in_progress: "En progreso",
+                  completed: "Completado",
+                  failed: "Fallado",
+                  skipped: "Saltado",
+                  deleted: "Eliminado",
+                };
+                return (
+                  <Tr key={habit.id}>
+                    <Td>{habit.icon}</Td>
+                    <Td>
+                      <Text fontWeight={600} isTruncated maxW="150px">
+                        {habit.name}
                       </Text>
-                    </HStack>
-                  </Td>
-                  <Td>
-                    <Text>{habit.goal || "N/A"}</Text>
-                  </Td>
-                  <Td>
-                    <Text>
-                      {habit.startDate
-                        ? new Date(
-                            habit.startDate.seconds * 1000
-                          ).toLocaleDateString()
-                        : "N/A"}
-                    </Text>
-                  </Td>
-                </Tr>
-              ))
+                    </Td>
+                    <Td>
+                      <Tag
+                        size="sm"
+                        variant="solid"
+                        colorScheme={habitStatusColor[habit.lastStatus]}
+                      >
+                        {habitStatus[habit.lastStatus] || "Pendiente"}
+                      </Tag>
+                    </Td>
+                    <Td>
+                      <HStack spacing={1}>
+                        <Text>
+                          {habit.areaIcon}
+                          {habit.areaName}
+                        </Text>
+                      </HStack>
+                    </Td>
+                    <Td>
+                      <Text>{habit.goal || "N/A"}</Text>
+                    </Td>
+                    <Td>
+                      <Text>
+                        {habit.startDate
+                          ? new Date(
+                              habit.startDate.seconds * 1000
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </Text>
+                    </Td>
+                  </Tr>
+                );
+              })
             ) : (
               <Tr>
                 <Td colSpan={6}>

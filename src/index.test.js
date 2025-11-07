@@ -1,87 +1,128 @@
-/**
- * @file index.test.js
- * @description Unit tests for the main React entry point (index.js).
- * Ensures correct rendering, provider hierarchy, and initialization behavior.
-*/
-import ReactDOM from "react-dom/client";
-import { ChakraProvider } from "@chakra-ui/react";
-import App from "./App";
-import { useTheme } from "./context/ThemeContext/ThemeContext";
-import { AuthUserProvider } from "./context/AuthUserContext/AuthUserContext";
-import "./index";
+import React from 'react';
 
-// ✅ Mock dependencies
-jest.mock("react-dom/client", () => ({
-    createRoot: jest.fn(() => ({
-        render: jest.fn(),
-    })),
+// Mocks for react-dom/client (createRoot and render)
+const mockRender = jest.fn();
+const mockRoot = {
+    render: mockRender,
+    unmount: jest.fn() // Add unmount for completeness, although it is not used
+};
+const mockCreateRoot = jest.fn(() => mockRoot);
+jest.mock('react-dom/client', () => ({
+    createRoot: mockCreateRoot,
 }));
 
-jest.mock("@chakra-ui/react", () => ({
-    ChakraProvider: jest.fn(({ children }) => <div data-testid="chakra">{children}</div>),
+// Mock for reportWebVitals
+const mockReportWebVitals = jest.fn();
+jest.mock('./reportWebVitals', () => mockReportWebVitals);
+
+// Mock for useTheme and ThemeProvider
+const mockChakraTheme = { colors: { brand: 'blue.500' } };
+// We mock useTheme so the Root component can get the theme
+const mockUseTheme = jest.fn(() => ({
+    chakraTheme: mockChakraTheme,
+}));
+const MockThemeProvider = ({ children }) => (
+    <div data-testid="mock-theme-provider">{children}</div>
+);
+jest.mock('./context/ThemeContext/ThemeContext', () => ({
+    ThemeProvider: MockThemeProvider,
+    useTheme: mockUseTheme,
 }));
 
-jest.mock("./App", () => jest.fn(() => <div data-testid="app">App</div>));
-jest.mock("./reportWebVitals", () => jest.fn());
-jest.mock("./context/ThemeContext/ThemeContext", () => ({
-    ThemeProvider: jest.fn(({ children }) => <div data-testid="theme">{children}</div>),
-    useTheme: jest.fn(() => ({ chakraTheme: { colors: {} } })),
+// Mock for AuthUserProvider
+const MockAuthUserProvider = ({ children }) => (
+    <div data-testid="mock-auth-provider">{children}</div>
+);
+jest.mock('./context/AuthUserContext/AuthUserContext', () => ({
+    AuthUserProvider: MockAuthUserProvider,
 }));
-jest.mock("./context/AuthUserContext/AuthUserContext", () => ({
-    AuthUserProvider: jest.fn(({ children }) => <div data-testid="auth">{children}</div>),
+
+// Mock for ChakraProvider (used within the Root component)
+const MockChakraProvider = ({ children, theme }) => (
+    <div data-testid="mock-chakra-provider" data-theme={JSON.stringify(theme)}>
+        {children}
+    </div>
+);
+jest.mock('@chakra-ui/react', () => ({
+    ChakraProvider: MockChakraProvider,
 }));
-jest.mock("@vercel/speed-insights/react", () => ({
-    SpeedInsights: ({ children }) => <div data-testid="speed">{children}</div>,
-}), { virtual: true });
 
-jest.mock("@vercel/analytics/react", () => ({
-    Analytics: ({ children }) => <div data-testid="analytics">{children}</div>,
-}), { virtual: true });
+// Mock for the main component App
+const MockApp = () => <div data-testid="mock-app" />;
+jest.mock('./App', () => MockApp);
 
-describe("index.js entry point", () => {
-    let mockRoot;
+describe('index.js application entry point', () => {
+    let rootElement;
+    let getElementByIdSpy;
 
-    beforeEach(() => {
-        jest.clearAllMocks();
-        mockRoot = { render: jest.fn() };
-        ReactDOM.createRoot.mockReturnValue(mockRoot);
-    });
-
-    test("creates a React root and renders the app", () => {
-        // Trigger the DOM structure as if it were mounting
-        const rootElement = document.createElement("div");
-        rootElement.id = "root";
+    beforeAll(() => {
+        // 2.1. Configuration of the Mock DOM element
+        // It is necessary for document.getElementById('root') to return something.
+        rootElement = document.createElement('div');
+        rootElement.id = 'root';
         document.body.appendChild(rootElement);
 
-        // Re-import index.js to execute it again in this context
-        jest.isolateModules(() => {
-            require("./index");
+        // We spy on document.getElementById to ensure it is called correctly
+        getElementByIdSpy = jest.spyOn(document, 'getElementById').mockImplementation((id) => {
+            if (id === 'root') return rootElement;
+            return null;
         });
 
-        expect(ReactDOM.createRoot).toHaveBeenCalledTimes(1);
-        expect(ReactDOM.createRoot).toHaveBeenCalledWith(rootElement);
-        expect(mockRoot.render).toHaveBeenCalledTimes(1);
+        // 2.2. Import index.js file
+        // This executes the mounting logic and side-effects
+        require('./index');
     });
 
-    test("uses ThemeProvider, ChakraProvider, and AuthUserProvider hierarchy correctly", () => {
-        const { chakraTheme } = useTheme();
-
-        expect(typeof chakraTheme).toBe("object");
-
-        // Check that all providers are defined
-        expect(require("@vercel/analytics/react").Analytics).toBeDefined();
-        expect(require("@vercel/speed-insights/react").SpeedInsights).toBeDefined();
-        expect(ChakraProvider).toBeDefined();
-        expect(AuthUserProvider).toBeDefined();
-        expect(App).toBeDefined();
+    afterAll(() => {
+        // Restore mocks and clean up the DOM
+        getElementByIdSpy.mockRestore();
+        document.body.removeChild(rootElement);
+        jest.resetModules(); // Resets the module cache so it does not interfere with other tests
     });
 
-    test("calls reportWebVitals once", () => {
-        jest.isolateModules(() => {
-            require("./index");
-        });
+    it('should call document.getElementById with "root"', () => {
+        expect(getElementByIdSpy).toHaveBeenCalledWith('root');
+    });
 
-        const reportWebVitals = require("./reportWebVitals");
-        expect(reportWebVitals).toHaveBeenCalledTimes(1);
+    it('should initialize the root element using ReactDOM.createRoot', () => {
+        expect(mockCreateRoot).toHaveBeenCalledTimes(1);
+        expect(mockCreateRoot).toHaveBeenCalledWith(rootElement);
+    });
+
+    it('should call root.render with the correct wrapper structure', () => {
+        expect(mockRender).toHaveBeenCalledTimes(1);
+
+        // 1. Verify the top-level element (StrictMode)
+        const renderCall = mockRender.mock.calls[0][0];
+        expect(renderCall.type).toBe(React.StrictMode);
+
+        // 2. Verify the child of StrictMode (ThemeProvider)
+        const themeProviderElement = renderCall.props.children;
+        expect(themeProviderElement.type).toBe(MockThemeProvider);
+
+        // 3. Verify the child of ThemeProvider (Root component)
+        const rootComponentElement = themeProviderElement.props.children;
+
+        // Since 'Root' is a function, we execute it to cover its internal logic
+        // and verify that it uses useTheme, ChakraProvider, and AuthUserProvider.
+        const RootComponent = rootComponentElement.type;
+        const rootOutput = RootComponent({});
+
+        // 4. Verify the use of useTheme() and the passing of the theme to ChakraProvider
+        expect(mockUseTheme).toHaveBeenCalledTimes(1);
+        expect(rootOutput.type).toBe(MockChakraProvider);
+        expect(rootOutput.props.theme).toEqual(mockChakraTheme);
+
+        // 5. Verify the child of ChakraProvider (AuthUserProvider)
+        const authProviderElement = rootOutput.props.children;
+        expect(authProviderElement.type).toBe(MockAuthUserProvider);
+
+        // 6. Verify the child of AuthUserProvider (App)
+        const appElement = authProviderElement.props.children;
+        expect(appElement.type).toBe(MockApp);
+    });
+
+    it('should call reportWebVitals once', () => {
+        expect(mockReportWebVitals).toHaveBeenCalledTimes(1);
     });
 });
