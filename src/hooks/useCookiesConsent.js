@@ -9,7 +9,7 @@ const defaultPreferences = {
 
 export function useCookiesConsent() {
     const [preferences, setPreferences] = useState(defaultPreferences);
-    const [isConsentGiven, setIsConsentGiven] = useState(false);
+    const [, setIsConsentGiven] = useState(false);
     const [showBanner, setShowBanner] = useState(false);
 
     useEffect(() => {

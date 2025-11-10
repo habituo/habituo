@@ -43,7 +43,7 @@ const AreaDetailPage = () => {
   const [habitToDelete, setHabitToDelete] = useState(null);
   const [habitToEdit, setHabitToEdit] = useState(null);
   const [searchParams] = useSearchParams();
-  const [completingHabitId, setCompletingHabitId] = useState(null);
+  const [, setCompletingHabitId] = useState(null);
   const { areas, onOpenLeftMenu, onOpenRightMenu, isMobile, setSelectedHabit } =
     useOutletContext();
   const [habitToCompleteQuantified, setHabitToCompleteQuantified] =
