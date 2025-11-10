@@ -38,6 +38,12 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
+# Build outputs
+dist/
+build/
+
+# Test coverag
+
 # Dependency directories
 node_modules/
 jspm_packages/
@@ -47,6 +53,9 @@ web_modules/
 
 # TypeScript cache
 *.tsbuildinfo
+
+# SonarQube analysis
+.scannerwork/
 
 # Optional npm cache directory
 .npm
@@ -75,8 +84,10 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.development.local
+.env.development
 .env.test.local
 .env.production.local
+.env.production
 .env.local
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -128,3 +139,4 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+.vercel

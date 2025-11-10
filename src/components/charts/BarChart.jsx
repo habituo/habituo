@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
-import { useTheme } from "../../context/ThemeContext";
-import { getHabitRecordsGroupedByDayListener } from "../../hooks/database";
-import { Box, Button, HStack, Text, useColorMode } from "@chakra-ui/react";
+import { useTheme } from "../../context/ThemeContext/ThemeContext";
+import { getHabitRecordsGroupedByDayListener } from "../../hooks/useDatabase";
+import { Box, Button, HStack, useColorMode } from "@chakra-ui/react";
 
 const BarChart = (props) => {
   const { themeOptions } = useTheme();
@@ -59,7 +59,7 @@ const BarChart = (props) => {
           times:
             typeof record.times === "number"
               ? record.times
-              : parseInt(record.times || "0", 10),
+              : Number.parseInt(record.times || "0", 10),
           status: record.status || "unknown",
         }));
         setRecords(formattedRecords);
@@ -129,10 +129,7 @@ const BarChart = (props) => {
 
     const dataPoints = dateRange.map((date) => {
       const formattedDateLabel = date
-        .toLocaleDateString("es-ES", {
-          day: "2-digit",
-          month: "short",
-        })
+        .toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
         .replace(".", "");
 
       const recordForDate = records.find(
@@ -142,20 +139,58 @@ const BarChart = (props) => {
           record.date.getDate() === date.getDate()
       );
 
-      let valueForChart = 0;
+      let valueForChart = null;
+      let tooltipLabel = "";
+
       if (recordForDate) {
-        if (recordForDate.status === "completed") {
-          valueForChart = recordForDate.times;
-        } else if (recordForDate.status === "skipped") {
-          valueForChart = null;
-        } else if (recordForDate.status === "failed") {
-          valueForChart = 0;
+        const {
+          status,
+          amount,
+          dailyGoal,
+          times,
+          minutes,
+          unit = "times",
+        } = recordForDate;
+
+        const progress =
+          typeof amount === "number"
+            ? amount
+            : unit === "minutes"
+            ? minutes || 0
+            : times || 0;
+
+        switch (status) {
+          case "completed":
+            valueForChart = dailyGoal || progress || 0;
+            tooltipLabel = `Completado (${valueForChart})`;
+            break;
+          case "in_progress":
+            valueForChart = progress;
+            tooltipLabel = `${progress} ${
+              unit === "times" ? "veces" : "minutos"
+            }`;
+            break;
+          case "skipped":
+            valueForChart = 0;
+            tooltipLabel = "Saltado";
+            break;
+          case "failed":
+            valueForChart = null;
+            tooltipLabel = "Fallido";
+            break;
+          default:
+            valueForChart = null;
+            tooltipLabel = "Sin datos";
         }
+      } else {
+        valueForChart = null;
+        tooltipLabel = "Sin datos";
       }
 
       return {
         x: formattedDateLabel,
         y: valueForChart,
+        tooltipLabel,
       };
     });
 
@@ -205,16 +240,17 @@ const BarChart = (props) => {
         custom: function ({ series, seriesIndex, dataPointIndex, w }) {
           const category = w.config.xaxis.categories[dataPointIndex];
           const value = series[seriesIndex][dataPointIndex];
-          let tooltipContent;
-          if (value === null) {
-            tooltipContent = `<span style="font-size:16px;font-weight:600">Saltado</span>`;
-          } else if (value === 0) {
-            tooltipContent = `<span style="font-size:16px;font-weight:600">Fallido</span>`;
-          } else {
-            tooltipContent = `<span style="font-size:16px;font-weight:600">${value} veces</span>`;
-          }
+          const record = chartData?.seriesData?.[dataPointIndex];
+          const tooltipText =
+            record && record.tooltipLabel
+              ? record.tooltipLabel
+              : value === null
+              ? "Sin datos"
+              : `${value}`;
+
           return `<div style="padding:5px 8px;background:var(--chakra-colors-${themeOptions.focusColor}-500);color:#fff;border:none;border-radius:${borderRadius}px;box-shadow:none;">
-            <span style="font-size:12px;font-weight:400;">${category}</span> - ${tooltipContent}
+            <span style="font-size:12px;font-weight:400;">${category}</span> - 
+            <span style="font-size:16px;font-weight:600;">${tooltipText}</span>
           </div>`;
         },
         hideEmptySeries: true,
@@ -239,22 +275,6 @@ const BarChart = (props) => {
             show: true,
           },
         },
-      },
-      annotations: {
-        yaxis: [
-          {
-            y: 5,
-            borderColor: "#00E396",
-            label: {
-              borderColor: "#00E396",
-              style: {
-                color: "#fff",
-                background: "#00E396",
-              },
-              text: "Meta",
-            },
-          },
-        ],
       },
     },
   });
@@ -298,19 +318,18 @@ const BarChart = (props) => {
           custom: function ({ series, seriesIndex, dataPointIndex, w }) {
             const category = w.config.xaxis.categories[dataPointIndex];
             const value = series[seriesIndex][dataPointIndex];
-
-            let tooltipContent;
-            if (value === null) {
-              tooltipContent = `<span style="font-size:16px;font-weight:600">Saltado</span>`;
-            } else if (value === 0) {
-              tooltipContent = `<span style="font-size:16px;font-weight:600">Fallido</span>`;
-            } else {
-              tooltipContent = `<span style="font-size:16px;font-weight:600">${value} veces</span>`;
-            }
+            const record = chartData?.seriesData?.[dataPointIndex];
+            const tooltipText =
+              record && record.tooltipLabel
+                ? record.tooltipLabel
+                : value === null
+                ? "Sin datos"
+                : `${value}`;
 
             return `<div style="padding:5px 8px;background:var(--chakra-colors-${themeOptions.focusColor}-500);color:#fff;border:none;border-radius:${borderRadius}px;box-shadow:none;">
-              <span style="font-size:12px;font-weight:400;">${category}</span> - ${tooltipContent}
-            </div>`;
+            <span style="font-size:12px;font-weight:400;">${category}</span> - 
+            <span style="font-size:16px;font-weight:600;">${tooltipText}</span>
+          </div>`;
           },
           style: {
             ...prevState.options.tooltip.style,
@@ -345,6 +364,7 @@ const BarChart = (props) => {
         <Button
           onClick={() => setFilterPeriod("1D")}
           size="sm"
+          lineHeight="none"
           borderRadius={borderRadius}
           variant={filterPeriod === "1D" ? "solid" : "outline"}
           colorScheme={filterPeriod === "1D" ? themeOptions.focusColor : "gray"}
@@ -354,6 +374,7 @@ const BarChart = (props) => {
         <Button
           onClick={() => setFilterPeriod("1W")}
           size="sm"
+          lineHeight="none"
           borderRadius={borderRadius}
           variant={filterPeriod === "1W" ? "solid" : "outline"}
           colorScheme={filterPeriod === "1W" ? themeOptions.focusColor : "gray"}
@@ -363,6 +384,7 @@ const BarChart = (props) => {
         <Button
           onClick={() => setFilterPeriod("1M")}
           size="sm"
+          lineHeight="none"
           borderRadius={borderRadius}
           variant={filterPeriod === "1M" ? "solid" : "outline"}
           colorScheme={filterPeriod === "1M" ? themeOptions.focusColor : "gray"}
@@ -372,6 +394,7 @@ const BarChart = (props) => {
         <Button
           onClick={() => setFilterPeriod("ALL")}
           size="sm"
+          lineHeight="none"
           borderRadius={borderRadius}
           variant={filterPeriod === "ALL" ? "solid" : "outline"}
           colorScheme={
