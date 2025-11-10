@@ -26,7 +26,7 @@ const AllAreasPage = () => {
   const toast = useToast();
   const [areas, setAreas] = useState([]);
   const { onOpenLeftMenu, onOpenRightMenu, isMobile } = useOutletContext();
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedArea, setSelectedArea] = useState(null);
 

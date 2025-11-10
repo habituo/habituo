@@ -21,7 +21,6 @@ import {
   Spinner,
   useColorMode,
 } from "@chakra-ui/react";
-import { useTheme } from "../../context/ThemeContext/ThemeContext";
 import { LuEye, LuEyeOff } from "react-icons/lu";
 import { FaGoogle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +30,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAuthUser } from "../../context/AuthUserContext/AuthUserContext";
 
 const LoginPage = () => {
-  const { themeOptions } = useTheme();
   const { user, loading, authError } = useAuthUser();
   const { login, loginWithGoogle } = useAuth();
   const toast = useToast();
