@@ -20,12 +20,10 @@ import {
   useToast,
   useColorMode,
 } from "@chakra-ui/react";
-import { useTheme } from "../../context/ThemeContext/ThemeContext";
 
 const RecoverPasswordPage = () => {
   const { user } = useAuthUser();
   const navigate = useNavigate();
-  const { themeOptions } = useTheme();
   const { colorMode } = useColorMode();
   const toast = useToast();
   const [email, setEmail] = useState("");
