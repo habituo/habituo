@@ -74,11 +74,14 @@ const HeroSection = () => {
             as={Link}
             href="/register"
             size="lg"
-            variant="solid"
             colorScheme="orange"
             borderRadius="full"
             transition="all 0.2s ease-in-out"
-            _hover={{ transform: "translateY(-2px)", boxShadow: "lg" }}
+            _hover={{
+              transform: "translateY(-2px)",
+              boxShadow: "lg",
+              textDecoration: "none",
+            }}
             _active={{ transform: "translateY(0)", boxShadow: "md" }}
           >
             Probar Habituo gratis

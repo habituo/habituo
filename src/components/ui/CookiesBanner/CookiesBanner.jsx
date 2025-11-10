@@ -52,7 +52,7 @@ const CookiesBanner = () => {
         bg="transparent"
       >
         <HStack
-        w="full"
+          w="full"
           py={{ base: 3, md: 4 }}
           px={{ base: 4, md: 5 }}
           bg={isLight ? "#00000010" : "transparent"}
@@ -61,7 +61,6 @@ const CookiesBanner = () => {
           flexDirection={{ base: "column", md: "row" }}
           alignItems={{ base: "flex-start", md: "center" }}
           justifyContent="space-between"
-          wrap="wrap"
           boxShadow="lg"
           borderRadius={{ base: "2xl", xl: "full" }}
         >
@@ -71,11 +70,7 @@ const CookiesBanner = () => {
             color="orange.500"
             display={{ base: "none", md: "block" }}
           />
-          <Text
-            mb={{ base: 2, md: 0 }}
-            mr={{ base: 0, md: 4 }}
-            fontSize="md"
-          >
+          <Text mb={{ base: 2, md: 0 }} mr={{ base: 0, md: 4 }} fontSize="md">
             Usamos cookies propias y de terceros para analizar el uso de nuestro
             sitio web, mejorar nuestros servicios y mostrarte publicidad
             personalizada según tus hábitos de navegación. Puedes aceptar todas
@@ -105,7 +100,7 @@ const CookiesBanner = () => {
             .
           </Text>
           <Flex
-          flexDirection={{base: "column", md: "row"}}
+            flexDirection={{ base: "column", md: "row" }}
             gap={3}
             mt={{ base: 2, md: 0 }}
             width={{ base: "100%", md: "auto" }}
